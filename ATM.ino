@@ -107,7 +107,7 @@ void setup() {
   ///////////////////// TESTING ////////////////////////////
   unsigned long stime = millis();
 
-  uint32_t target_frequency = 110000000U;
+  uint32_t target_frequency = 100000000U;
   Serial.println("_______________________________________________");
   Serial.println("Start - Target frequency is:");
   Serial.println(target_frequency);
@@ -133,7 +133,7 @@ void setup() {
   Serial.println(resonance_frequency);*/
 
   Serial.println("Matched in s");
-  Serial.println(millis()-stime);
+  Serial.println((millis()-stime)/ 1000);
 
   
   
@@ -143,6 +143,7 @@ void loop() {
 
 
 }
+
 
 
 void homeStepper(){
@@ -191,7 +192,7 @@ int32_t approximateResonance(uint32_t target_frequency, uint32_t current_resonan
   tuning_stepper.runToPosition();
   //step_n(STEPS_PER_ROTATION);
 
-  // Optimization possible here -> just scan plausible area
+  // @ Optimization possibility: -> just scan plausible area, would reduce half the scan time
   int32_t one_revolution_resonance = findCurrentResonanceFrequency(current_resonance_frequency - 30000000U, current_resonance_frequency + 30000000U, FREQUENCY_STEP); 
   //Serial.println(one_revolution_resonance);
   
@@ -212,18 +213,18 @@ int32_t approximateResonance(uint32_t target_frequency, uint32_t current_resonan
 }
 
 
-
+// Tries out different capacitor position until iteration depth is reached OR current_resonancy frequency matches the target_frequency
 int32_t bruteforceResonance(uint32_t target_frequency, uint32_t current_resonance_frequency){
   // Change Tuning Stepper -> Clockwise => Freq goes up
   // Dir = 0 => Anticlockwise movement
   int rotation = 0; // rotation == 1 -> clockwise, rotation == -1 -> counterclockwise
   
-  int ITERATIONS = 25; // //100 equals one full rotation
+  int ITERATIONS = 25; // Iteration depth
   int iteration_steps = 0;
   
   int32_t delta_frequency = target_frequency - current_resonance_frequency; 
 
-  if (delta_frequency < 0) rotation = -1; // negative delta means currentresonance is to high, hence anticlockwise movement is necessary
+  if (delta_frequency < 0) rotation = -1; // negative delta means currentresonance is too high, hence anticlockwise movement is necessary
   else rotation = 1;
 
   iteration_steps = rotation * (STEPS_PER_ROTATION / 50);
@@ -234,6 +235,7 @@ int32_t bruteforceResonance(uint32_t target_frequency, uint32_t current_resonanc
     tuning_stepper.move(iteration_steps);
     tuning_stepper.runToPosition();
 
+     // @ Optimization possibility: Reduce frequency range when close to target_frequency
      current_resonance_frequency = findCurrentResonanceFrequency(target_frequency - 5000000U, target_frequency + 5000000U, FREQUENCY_STEP / 2);
     
      //Serial.println(current_resonance_frequency);
@@ -262,6 +264,7 @@ int32_t bruteforceResonance(uint32_t target_frequency, uint32_t current_resonanc
   
 }
 
+// 
 int optimizeMatching(uint32_t current_frequency){
   int minimum_reflection = 4096;
   int current_reflection = 0;
