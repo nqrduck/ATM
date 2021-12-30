@@ -103,11 +103,12 @@ void setup() {
 
   adf4351.setrf(25000000U);
   adf4351.pwrlevel = 0; // This equals -4dBm*/
+  adf4351.setf(START_FREQUENCY);
 
-  ///////////////////// TESTING ////////////////////////////
-  unsigned long stime = millis();
+  ///////////////////// TESTING //////////////////////////// -> This works reliably
+  /*unsigned long stime = millis();
 
-  uint32_t target_frequency = 100000000U;
+  uint32_t target_frequency = 105000000U;
   Serial.println("_______________________________________________");
   Serial.println("Start - Target frequency is:");
   Serial.println(target_frequency);
@@ -132,16 +133,116 @@ void setup() {
   Serial.println("Resonance after bruteforce is at:");
   Serial.println(resonance_frequency);*/
 
-  Serial.println("Matched in s");
-  Serial.println((millis()-stime)/ 1000);
+  //Serial.println("Matched in s");
+  //Serial.println((millis()-stime)/ 1000);
 
   
   
 }
 
+// Implement Serial communication ...
+// This could probably cleaned up by using structs for the inputs, pointing to the diferent functions- > would reduce copy-paste code and make adding functions more intuitive
 void loop() {
+  if (Serial.available()) { 
+    
+    String input_line = Serial.readStringUntil('\n'); // read string until newline character
 
+    char command = input_line.charAt(0); // gets first character of input
 
+    // approximate call
+    // CAREFULL -> if the coil has no proper matching in the frequency range this will not work! Only use this for testing -> otherwise use the automated 'decide' call. 
+    if (command == 'a') {
+      float target_frequency_MHz = input_line.substring(1).toFloat();
+      uint32_t target_frequency = validateInput(target_frequency_MHz);
+      if (target_frequency == 0) return;
+      
+      Serial.println("Approximating matching to target frequency in MHz:");
+      Serial.println(target_frequency_MHz);
+
+      uint32_t resonance_frequency = findCurrentResonanceFrequency(START_FREQUENCY, STOP_FREQUENCY, FREQUENCY_STEP);
+      resonance_frequency = approximateResonance(target_frequency, resonance_frequency);
+      Serial.println("Resonance after approximation is at:");
+      Serial.println(resonance_frequency);
+      
+
+    // bruteforce call 
+    // CAREFULL -> if the current resonance frequency is not within +-5MHz of the target frequency this will not work. Only use this for testing -> otherwise use the automated 'decide' call. 
+    } else if (command == 'b') {
+      float target_frequency_MHz = input_line.substring(1).toFloat();
+      uint32_t target_frequency = validateInput(target_frequency_MHz);
+      if (target_frequency == 0) return;
+      
+      Serial.println("Bruteforce matching to target frequency in MHz:");
+      Serial.println(target_frequency_MHz);
+
+      uint32_t resonance_frequency = findCurrentResonanceFrequency(START_FREQUENCY, STOP_FREQUENCY, FREQUENCY_STEP);
+
+      resonance_frequency = bruteforceResonance(target_frequency, resonance_frequency);
+      Serial.println("Resonance after bruteforce is at:");
+      Serial.println(resonance_frequency);
+      
+      
+
+    // decide call
+    // this function decides what kind of t&m mode should be used based on the relationship between target frequency and current resonance
+    // it also makes sure that there a homing routine performed in case there is currently no proper resonance in the frequency range
+    } else if (command == 'd'){
+      int target_frequency_MHz = input_line.substring(1).toInt();
+      uint32_t target_frequency = validateInput(target_frequency_MHz);
+      if (target_frequency == 0) return;
+
+      Serial.println("Tuning and Matching to target frequency in MHz (automatic mode):");
+      Serial.println(target_frequency_MHz);
+
+      uint32_t resonance_frequency = findCurrentResonanceFrequency(START_FREQUENCY, STOP_FREQUENCY, FREQUENCY_STEP);
+      Serial.println(resonance_frequency); // debug line
+
+      int32_t delta_frequency = target_frequency - resonance_frequency; // needs to be int -> negative frequencies possible
+      if (abs(delta_frequency) > 5000000U) resonance_frequency = approximateResonance(target_frequency, resonance_frequency);
+
+      Serial.println(resonance_frequency); // debug line
+
+      resonance_frequency = bruteforceResonance(target_frequency, resonance_frequency);
+      
+      Serial.println("Resonance after tuning and matching is at:");
+      Serial.println(resonance_frequency);
+
+    // calibration call
+    // Perform the homing routine by looking for the limit of the capacitors
+    // it also places the steppers in a way so there is a resonance dip inside the frequency range
+    // CAREFULL -> The values are hardcoded, these need to be changed if there is a different coil in use
+    } else if (command == 'c'){
+
+    // frequency sweep call
+    // scans the frequency range for the current resonance frequency
+    } else if (command == 'f'){
+      uint32_t resonance_frequency = findCurrentResonanceFrequency(START_FREQUENCY, STOP_FREQUENCY, FREQUENCY_STEP);
+      Serial.println("Resonance is at:");
+      Serial.println(resonance_frequency);
+      
+    // Invalid Input
+    } else {
+      Serial.println("Invalid Input");
+    }
+  }
+
+}
+
+// This helper function checks if the input frequency is plausible, if so it returns the value in Hz
+// otherwise it returns 0
+uint32_t validateInput(float frequency_MHz){
+  uint32_t frequency_Hz = (uint32_t) frequency_MHz * 1000000U;
+
+  if (frequency_Hz < START_FREQUENCY){
+    Serial.println("Invalid input: frequency too low");
+    return 0;
+  } else if (frequency_Hz > STOP_FREQUENCY) {
+    Serial.println("Invalid input: frequency too high");
+    return 0;    
+  }else{
+    return frequency_Hz;
+  }
+  
 }
 
 
@@ -152,9 +253,12 @@ void homeStepper(){
 
 // Finds current Resonance Frequency of the coil. There should be a substential dip already present atm. 
 // Add plausibility check to make sure there is one peak at at least -12dB
+// Following is for setup WITHOUT 20dB LNA:
 // -30dB aprox. 1.15V Oscilloscope -> normally 1.6V -> 1300 Points
 // -16dB aprox. 1.27V Oscilloscope - normally 1.6V
 // -18dB aprox 1.295V Oscilloscope -> use 1489 Points as decision line for sufficient Matching
+
+// Values for setup WITH 20dB LNA:
 
 int32_t findCurrentResonanceFrequency(uint32_t start_frequency, uint32_t stop_frequency, uint32_t frequency_step){
     int minimum_reflection = 4096;
