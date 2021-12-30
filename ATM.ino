@@ -1,8 +1,9 @@
-#include "ADF4351.h"
 #include <TMC2130Stepper.h>
 #include <AccelStepper.h>
 #include <MultiStepper.h>
+#include <math.h>  
 
+#include "ADF4351.h"
 
 //SPI Pins
 #define SCLK_PIN 14
@@ -141,7 +142,7 @@ void setup() {
 }
 
 // Implement Serial communication ...
-// This could probably cleaned up by using structs for the inputs, pointing to the diferent functions- > would reduce copy-paste code and make adding functions more intuitive
+// This could probably cleaned up by using structs for the inputs, pointing to the different functions- > would reduce copy-paste code and make adding functions more intuitive
 void loop() {
   if (Serial.available()) { 
     
@@ -187,7 +188,7 @@ void loop() {
     // this function decides what kind of t&m mode should be used based on the relationship between target frequency and current resonance
     // it also makes sure that there a homing routine performed in case there is currently no proper resonance in the frequency range
     } else if (command == 'd'){
-      int target_frequency_MHz = input_line.substring(1).toInt();
+      float target_frequency_MHz = input_line.substring(1).toFloat();
       uint32_t target_frequency = validateInput(target_frequency_MHz);
       if (target_frequency == 0) return;
 
@@ -195,12 +196,12 @@ void loop() {
       Serial.println(target_frequency_MHz);
 
       uint32_t resonance_frequency = findCurrentResonanceFrequency(START_FREQUENCY, STOP_FREQUENCY, FREQUENCY_STEP);
-      Serial.println(resonance_frequency); // debug line
+      //Serial.println(resonance_frequency); // debug line
 
       int32_t delta_frequency = target_frequency - resonance_frequency; // needs to be int -> negative frequencies possible
       if (abs(delta_frequency) > 5000000U) resonance_frequency = approximateResonance(target_frequency, resonance_frequency);
 
-      Serial.println(resonance_frequency); // debug line
+      //Serial.println(resonance_frequency); // debug line
 
       resonance_frequency = bruteforceResonance(target_frequency, resonance_frequency);
       
@@ -219,7 +220,19 @@ void loop() {
       uint32_t resonance_frequency = findCurrentResonanceFrequency(START_FREQUENCY, STOP_FREQUENCY, FREQUENCY_STEP);
       Serial.println("Resonance is at:");
       Serial.println(resonance_frequency);
-      
+
+    // calculates Reflection loss for a given frequency
+    } else if (command == 'r'){
+      float frequency_MHz = input_line.substring(1).toFloat();
+      uint32_t frequency = validateInput(frequency_MHz);
+      if (frequency == 0) return;
+
+      float reflection_loss = calculateRL(frequency);
+      Serial.println("For frequency:");
+      Serial.println(frequency);
+      Serial.println("Reflection Loss in dB is:");
+      Serial.println(reflection_loss);
+   
     // Invalid Input
     } else {
       Serial.println("Invalid Input");
@@ -231,7 +244,7 @@ void loop() {
 // This helper function checks if the input frequency is plausible, if so it returns the value in Hz
 // otherwise it returns 0
 uint32_t validateInput(float frequency_MHz){
-  uint32_t frequency_Hz = (uint32_t) frequency_MHz * 1000000U;
+  uint32_t frequency_Hz = frequency_MHz * 1000000U;
 
   if (frequency_Hz < START_FREQUENCY){
     Serial.println("Invalid input: frequency too low");
@@ -251,6 +264,36 @@ void homeStepper(){
   
 }
 
+// calculates the Reflection Loss at a specified frequency
+//24mV/dB slope
+//0dBV defined as 1V Sin RMS
+// Would expect 1.74V as output for unmatched coil -> but it's 1.65V => ~10mV at Logamp
+
+// Measurments: with 40dB LNA @85MHz
+// Open: 1.6V RMS output 
+// Coil matched to -30dB: 1.0V RmS Output
+
+float calculateRL(uint32_t frequency){
+  adf4351.setf(frequency);
+  delay(10);
+
+  int reflection_mv = analogReadMilliVolts(REFLECTION_PIN); // Output of the logamp
+
+  float RMS_ADF = 0.0101; // at -4dBm the ADF4351 generates sin with an RMS value of 131.5mV but due to to -10dB attenuation of the transcoupler and some additional reflections about 10.1mV are effectivly at the Logamp
+  float LOGAMP_SLOPE = 24; // Slope in mV/dB
+
+  int intercept_positioning = -108; // in dB  
+
+  float reflection_dBV = (reflection_mv/LOGAMP_SLOPE) + intercept_positioning;
+
+  float reflection_rms = pow(10, reflection_dBV / 20); // this step could be shortened but I still like to calculate it explicitly since there are multiple logarithmic operations going on here
+
+  float reflection_loss = 20 * log10(reflection_rms / RMS_ADF);
+
+  return reflection_loss;
+  
+}
+
 // Finds current Resonance Frequency of the coil. There should be a substential dip already present atm. 
 // Add plausibility check to make sure there is one peak at at least -12dB
 // Following is for setup WITHOUT 20dB LNA:
@@ -258,7 +301,11 @@ void homeStepper(){
 // -16dB aprox. 1.27V Oscilloscope - normally 1.6V
 // -18dB aprox 1.295V Oscilloscope -> use 1489 Points as decision line for sufficient Matching
 
-// Values for setup WITH 20dB LNA:
+// Values for setup WITH 20dB LNA: -> i don't know what happened here.
+// open 1.2V
+//-16dB  827mV Oscilloscope
+//-30dB 770mV Oscilloscope 
+
 
 int32_t findCurrentResonanceFrequency(uint32_t start_frequency, uint32_t stop_frequency, uint32_t frequency_step){
     int minimum_reflection = 4096;
