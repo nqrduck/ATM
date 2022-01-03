@@ -31,7 +31,7 @@
 #define DIAG1_PIN_M2 0 // used for homing
 
 // Stall Detection sensitivity
-#define STALL_VALUE -64 // [-64..63]
+#define STALL_VALUE 16 // [-64..63]
 
 //ADC Pin
 #define REFLECTION_PIN 15
@@ -43,6 +43,8 @@
 
 // Stepper Settings
 #define STEPS_PER_ROTATION 3200U // 200 * 16 -> Microstepping
+#define TUNING_STEPPER_HOME 32000U
+#define MATCHING_STEPPER_HOME 32000U
 
 ADF4351 adf4351(SCLK_PIN, MOSI_PIN, LE_PIN, CE_PIN); // declares object PLL of type ADF4351
 
@@ -52,53 +54,66 @@ TMC2130Stepper matching_driver = TMC2130Stepper(EN_PIN_M2, DIR_PIN_M2, STEP_PIN_
 AccelStepper tuning_stepper = AccelStepper(tuning_stepper.DRIVER, STEP_PIN_M1, DIR_PIN_M1);
 AccelStepper matching_stepper = AccelStepper(matching_stepper.DRIVER, STEP_PIN_M2, DIR_PIN_M2);
 
-void IRAM_ATTR tuningStall() {
-  Serial.println("Stall");
-}
+struct Stepper{
+   AccelStepper STEPPER;
+   TMC2130Stepper DRIVER;
+   int STALL_PIN;
+   int HOME_POSITION;
+};
+
+Stepper tuner = {tuning_stepper, tuning_driver, DIAG1_PIN_M1, TUNING_STEPPER_HOME};
+
+Stepper matcher = {matching_stepper, matching_driver, DIAG1_PIN_M2, MATCHING_STEPPER_HOME};
 
 void setup() {
   Serial.begin(115200);
 
   pinMode(MISO_PIN, INPUT_PULLUP); // Seems to be necessary for SPI to work
 
-  tuning_driver.begin();       // Initiate pins and registeries
-  tuning_driver.rms_current(400);   // Set stepper current to 800mA. The command is the same as command TMC2130.setCurrent(600, 0.11, 0.5);
-  tuning_driver.microsteps(16);
-  tuning_driver.coolstep_min_speed(0xFFFFF); // 20bit max - needs to be set for stallguard 
-  tuning_driver.diag1_stall(1);
-  tuning_driver.diag1_active_high(1);
-  tuning_driver.sg_stall_value(STALL_VALUE);
-  tuning_driver.shaft_dir(0);
+  tuner.DRIVER.begin();       // Initiate pins and registeries
+  tuner.DRIVER.rms_current(400);   // Set stepper current to 800mA. The command is the same as command TMC2130.setCurrent(600, 0.11, 0.5);
+  tuner.DRIVER.microsteps(16);
+  tuner.DRIVER.coolstep_min_speed(0xFFFFF); // 20bit max - needs to be set for stallguard 
+  tuner.DRIVER.diag1_stall(1);
+  tuner.DRIVER.diag1_active_high(1);
+  tuner.DRIVER.sg_stall_value(STALL_VALUE);
+  tuner.DRIVER.shaft_dir(0);
+  tuner.DRIVER.stealthChop(1);   // Enable extremely quiet stepping
 
   pinMode(DIAG1_PIN_M1, INPUT);
-  attachInterrupt(DIAG1_PIN_M1, tuningStall, RISING);
 
   Serial.print("DRV_STATUS=0b");
   Serial.println(tuning_driver.DRV_STATUS(), BIN);
 
-  matching_driver.begin();       // Initiate pins and registeries
-  matching_driver.rms_current(600);   // Set stepper current to 800mA. The command is the same as command TMC2130.setCurrent(600, 0.11, 0.5);
-  matching_driver.microsteps(16);
+  matcher.DRIVER.begin();       // Initiate pins and registeries
+  matcher.DRIVER.rms_current(200);   // Set stepper current to 800mA. The command is the same as command TMC2130.setCurrent(600, 0.11, 0.5);
+  matcher.DRIVER.microsteps(16);
+  matcher.DRIVER.coolstep_min_speed(0xFFFFF); // 20bit max - needs to be set for stallguard 
+  matcher.DRIVER.diag1_stall(1);
+  matcher.DRIVER.diag1_active_high(1);
+  matcher.DRIVER.sg_stall_value(STALL_VALUE);
+  matcher.DRIVER.shaft_dir(0);
+  matcher.DRIVER.stealthChop(1);   // Enable extremely quiet stepping
   
   digitalWrite(EN_PIN_M1, LOW);
 
   digitalWrite(EN_PIN_M2, LOW);
 
-  tuning_stepper.setMaxSpeed(12000); 
-  tuning_stepper.setAcceleration(12000); 
-  tuning_stepper.setEnablePin(EN_PIN_M1);
-  tuning_stepper.setPinsInverted(false, false, true);
-  tuning_stepper.enableOutputs();
+  tuner.STEPPER.setMaxSpeed(12000); 
+  tuner.STEPPER.setAcceleration(12000); 
+  tuner.STEPPER.setEnablePin(EN_PIN_M1);
+  tuner.STEPPER.setPinsInverted(false, false, true);
+  tuner.STEPPER.enableOutputs();
 
-  matching_stepper.setMaxSpeed(12000); 
-  matching_stepper.setAcceleration(12000); 
-  matching_stepper.setEnablePin(EN_PIN_M2);
-  matching_stepper.setPinsInverted(false, false, true);
-  matching_stepper.enableOutputs();
+  matcher.STEPPER.setMaxSpeed(12000); 
+  matcher.STEPPER.setAcceleration(12000); 
+  matcher.STEPPER.setEnablePin(EN_PIN_M2);
+  matcher.STEPPER.setPinsInverted(false, false, true);
+  matcher.STEPPER.enableOutputs();
   
-  tuning_stepper.setCurrentPosition(0);
+  tuner.STEPPER.setCurrentPosition(0);
 
-  matching_stepper.setCurrentPosition(0);
+  matcher.STEPPER.setCurrentPosition(0);
 
   adf4351.begin();
 
@@ -210,10 +225,17 @@ void loop() {
     // it also places the steppers in a way so there is a resonance dip inside the frequency range
     // CAREFULL -> The values are hardcoded, these need to be changed if there is a different coil in use
     } else if (command == 'c'){
-
+      Serial.println("Homing...");
+      homeStepper(tuner);
+      homeStepper(matcher);
+      Serial.println("Resonance frequency after homing:");
+      uint32_t resonance_frequency = findCurrentResonanceFrequency(START_FREQUENCY, STOP_FREQUENCY, FREQUENCY_STEP);
+      Serial.println(resonance_frequency);
+      
     // frequency sweep call
     // scans the frequency range for the current resonance frequency
     } else if (command == 'f'){
+      Serial.println("Frequency sweep");
       uint32_t resonance_frequency = findCurrentResonanceFrequency(START_FREQUENCY, STOP_FREQUENCY, FREQUENCY_STEP);
       Serial.println("Resonance is at:");
       Serial.println(resonance_frequency);
@@ -262,8 +284,34 @@ int readReflection(int averages){
   
 }
 
-void homeStepper(){
+//should put the stepper stuff into a struct
+void homeStepper(Stepper stepper){ 
+  stallStepper(stepper);
+
+  /*tuning_stepper.setMaxSpeed(3000); 
+  tuning_stepper.setAcceleration(3000); 
+
+  delay(500);
   
+  stallStepper(tuning_stepper);
+
+  tuning_stepper.setMaxSpeed(12000); 
+  tuning_stepper.setAcceleration(12000); */
+
+  stepper.STEPPER.setCurrentPosition(0);
+  stepper.STEPPER.moveTo(stepper.HOME_POSITION);
+  stepper.STEPPER.runToPosition();
+  
+}
+
+void stallStepper(Stepper stepper){
+  stepper.STEPPER.moveTo(-9999999);
+  
+  while (!digitalRead(stepper.STALL_PIN)){
+    stepper.STEPPER.run();
+  }
+
+  stepper.STEPPER.stop();
 }
 
 // calculates the Reflection Loss at a specified frequency
@@ -274,21 +322,9 @@ void homeStepper(){
 // Measurments: with 40dB LNA @85MHz
 // Open: 1.6V RMS output 
 // Coil matched to -30dB: 1.0V RmS Output
-
 float calculateRL(uint32_t frequency){
-  adf4351.setf(frequency);
-  delay(10);
-
-  int reflection_mv = readReflection(64); // Output of the logamp
-
   float RMS_ADF = 13; // at -4dBm the ADF4351 generates sin with an RMS value of 131.5mV but due to to -10dB attenuation of the transcoupler and some additional reflections about 13mV are effectivly at the Logamp
-  float LOGAMP_SLOPE = 24; // Slope in mV/dB
-
-  int intercept_positioning = -108; // in dB  
-
-  float reflection_dBV = (reflection_mv/LOGAMP_SLOPE) + intercept_positioning;
-
-  float reflection_rms = pow(10, reflection_dBV / 20) * 1000; // this step could be shortened but I still like to calculate it explicitly since there are multiple logarithmic operations going on here - > this value is in mV
+  float reflection_rms = getReflectionRMS(frequency);
 
   float reflection_loss = 20 * log10((reflection_rms)/ RMS_ADF);
   
@@ -296,6 +332,22 @@ float calculateRL(uint32_t frequency){
 
   return reflection_loss;
   
+}
+
+float getReflectionRMS(uint32_t frequency){
+  float LOGAMP_SLOPE = 24; // Slope in mV/dB
+  
+  adf4351.setf(frequency);
+  delay(10);
+
+  int reflection_mv = readReflection(64); // Output of the logamp
+
+  int intercept_positioning = -108; // in dB  
+
+  float reflection_dBV = (reflection_mv/LOGAMP_SLOPE) + intercept_positioning;
+
+  float reflection_rms = pow(10, reflection_dBV / 20) * 1000; // this step could be shortened but I still like to calculate it explicitly since there are multiple logarithmic operations going on here - > this value is in mV
+  return reflection_rms;
 }
 
 // Finds current Resonance Frequency of the coil. There should be a substential dip already present atm. 
