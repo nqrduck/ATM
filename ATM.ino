@@ -258,7 +258,12 @@ uint32_t validateInput(float frequency_MHz){
   
 }
 
-
+int readReflection(int averages){
+  int reflection = 0;
+  for (int i = 0; i < averages; i ++) reflection += analogReadMilliVolts(REFLECTION_PIN);
+  return reflection/averages;
+  
+}
 
 void homeStepper(){
   
@@ -277,18 +282,20 @@ float calculateRL(uint32_t frequency){
   adf4351.setf(frequency);
   delay(10);
 
-  int reflection_mv = analogReadMilliVolts(REFLECTION_PIN); // Output of the logamp
+  int reflection_mv = readReflection(64); // Output of the logamp
 
-  float RMS_ADF = 0.0101; // at -4dBm the ADF4351 generates sin with an RMS value of 131.5mV but due to to -10dB attenuation of the transcoupler and some additional reflections about 10.1mV are effectivly at the Logamp
+  float RMS_ADF = 13; // at -4dBm the ADF4351 generates sin with an RMS value of 131.5mV but due to to -10dB attenuation of the transcoupler and some additional reflections about 13mV are effectivly at the Logamp
   float LOGAMP_SLOPE = 24; // Slope in mV/dB
 
   int intercept_positioning = -108; // in dB  
 
   float reflection_dBV = (reflection_mv/LOGAMP_SLOPE) + intercept_positioning;
 
-  float reflection_rms = pow(10, reflection_dBV / 20); // this step could be shortened but I still like to calculate it explicitly since there are multiple logarithmic operations going on here
+  float reflection_rms = pow(10, reflection_dBV / 20) * 1000; // this step could be shortened but I still like to calculate it explicitly since there are multiple logarithmic operations going on here - > this value is in mV
 
-  float reflection_loss = 20 * log10(reflection_rms / RMS_ADF);
+  float reflection_loss = 20 * log10((reflection_rms)/ RMS_ADF);
+  
+  Serial.println(reflection_rms);
 
   return reflection_loss;
   
@@ -318,7 +325,7 @@ int32_t findCurrentResonanceFrequency(uint32_t start_frequency, uint32_t stop_fr
       adf4351.setf(frequency);
       delay(5); // This delay is essential! There is a glitch with ADC2 that leads to wrong readings if GPIO27 is set to high for multiple microseconds.
       
-      current_reflection = analogRead(REFLECTION_PIN);
+      current_reflection = readReflection(4);
 
       if (current_reflection < minimum_reflection){
         minimum_frequency = frequency;
