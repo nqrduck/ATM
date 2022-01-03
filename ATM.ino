@@ -43,7 +43,7 @@
 
 // Stepper Settings
 #define STEPS_PER_ROTATION 3200U // 200 * 16 -> Microstepping
-#define TUNING_STEPPER_HOME 32000U
+#define TUNING_STEPPER_HOME 27600U
 #define MATCHING_STEPPER_HOME 32000U
 
 ADF4351 adf4351(SCLK_PIN, MOSI_PIN, LE_PIN, CE_PIN); // declares object PLL of type ADF4351
@@ -235,7 +235,7 @@ void loop() {
     // frequency sweep call
     // scans the frequency range for the current resonance frequency
     } else if (command == 'f'){
-      Serial.println("Frequency sweep");
+      Serial.println("Frequency sweep...");
       uint32_t resonance_frequency = findCurrentResonanceFrequency(START_FREQUENCY, STOP_FREQUENCY, FREQUENCY_STEP);
       Serial.println("Resonance is at:");
       Serial.println(resonance_frequency);
@@ -251,9 +251,18 @@ void loop() {
       Serial.println(frequency);
       Serial.println("Reflection Loss in dB is:");
       Serial.println(reflection_loss);
+
+    //optimize Matching 
+    } else if (command == 'm'){
+      Serial.println("Optimize Matching around frequency:");
+      uint32_t resonance_frequency = findCurrentResonanceFrequency(START_FREQUENCY, STOP_FREQUENCY, FREQUENCY_STEP);
+
+      Serial.println(resonance_frequency);
+
+      optimizeMatching(resonance_frequency);
    
     // Invalid Input
-    } else {
+    } else {     
       Serial.println("Invalid Input");
     }
   }
@@ -327,8 +336,6 @@ float calculateRL(uint32_t frequency){
   float reflection_rms = getReflectionRMS(frequency);
 
   float reflection_loss = 20 * log10((reflection_rms)/ RMS_ADF);
-  
-  Serial.println(reflection_rms);
 
   return reflection_loss;
   
@@ -403,8 +410,8 @@ int32_t approximateResonance(uint32_t target_frequency, uint32_t current_resonan
   if (delta_frequency < 0) rotation = -1; // negative delta means currentresonance is to high, hence anticlockwise movement is necessary
   else rotation = 1;
 
-  tuning_stepper.moveTo(STEPS_PER_ROTATION * rotation);
-  tuning_stepper.runToPosition();
+  tuner.STEPPER.move(STEPS_PER_ROTATION * rotation); // This needs to be changed
+  tuner.STEPPER.runToPosition();
   //step_n(STEPS_PER_ROTATION);
 
   // @ Optimization possibility: -> just scan plausible area, would reduce half the scan time
@@ -424,8 +431,8 @@ int32_t approximateResonance(uint32_t target_frequency, uint32_t current_resonan
 
   int32_t steps_to_delta_frequency = ((float) delta_frequency / (float) delta_one_revolution_frequency) * STEPS_PER_ROTATION * rotation;
 
-  tuning_stepper.moveTo(steps_to_delta_frequency);
-  tuning_stepper.runToPosition();
+  tuner.STEPPER.move(steps_to_delta_frequency);
+  tuner.STEPPER.runToPosition();
   //step_n(STEPS_PER_ROTATION - steps_to_delta_frequency);
 
   current_resonance_frequency = findCurrentResonanceFrequency(target_frequency - 5000000U, target_frequency + 5000000U, FREQUENCY_STEP);
@@ -453,8 +460,8 @@ int32_t bruteforceResonance(uint32_t target_frequency, uint32_t current_resonanc
   //'bruteforce' the stepper position to match the target frequency
   
   for (int i = 0; i < ITERATIONS; i ++){  
-    tuning_stepper.move(iteration_steps);
-    tuning_stepper.runToPosition();
+    tuner.STEPPER.move(iteration_steps);
+    tuner.STEPPER.runToPosition();
 
      // @ Optimization possibility: Reduce frequency range when close to target_frequency
      current_resonance_frequency = findCurrentResonanceFrequency(target_frequency - 5000000U, target_frequency + 5000000U, FREQUENCY_STEP / 2);
@@ -486,36 +493,55 @@ int32_t bruteforceResonance(uint32_t target_frequency, uint32_t current_resonanc
 }
 
 // 
-int optimizeMatching(uint32_t current_frequency){
+// Matcher clockwise lowers resonance frequency
+
+int optimizeMatching(uint32_t current_resonance_frequency){
   int minimum_reflection = 4096;
   int current_reflection = 0;
   int minimum_matching_position = 0; 
+  int last_minimum_reflection = 0;
+  int rotation = 1;
 
   int ITERATIONS = 25; // //100 equals one full rotation
   int iteration_steps = 0;
 
-  iteration_steps = STEPS_PER_ROTATION / 100;
+  iteration_steps = rotation * STEPS_PER_ROTATION / 4;
 
-  
+  adf4351.setf(current_resonance_frequency);
   for (int i = 0; i < ITERATIONS; i ++){
-    matching_stepper.move(iteration_steps);
-    matching_stepper.runToPosition();
+    
+    matcher.STEPPER.move(iteration_steps);
+    matcher.STEPPER.runToPosition();
 
-    for (uint32_t frequency = current_frequency - 5000000U; frequency < current_frequency + 5000000U; frequency += FREQUENCY_STEP){
-      adf4351.setf(frequency);
-      delay(10);
-      
-      current_reflection = analogRead(REFLECTION_PIN);
+    current_resonance_frequency = findCurrentResonanceFrequency(current_resonance_frequency - 5000000U, current_resonance_frequency + 5000000U, FREQUENCY_STEP / 2);
+    adf4351.setf(current_resonance_frequency);
+    
+    current_reflection = readReflection(64);     
 
-      if (current_reflection < minimum_reflection){
-        minimum_matching_position = matching_stepper.currentPosition();
+    if (current_reflection < minimum_reflection){
+        minimum_matching_position = matcher.STEPPER.currentPosition();
         minimum_reflection = current_reflection;
-      }
+        
+     }
+    
+
+    if (last_minimum_reflection > minimum_reflection) {
+      rotation *= -1;
+      iteration_steps /= 2;
+      iteration_steps *= rotation;
     }
+
+    Serial.println(last_minimum_reflection);
+    last_minimum_reflection = minimum_reflection;
+    if(iteration_steps == 0) break;   
+
+    
+    Serial.println(current_reflection);
+    
   }
   
-  matching_stepper.moveTo(minimum_matching_position);
-  matching_stepper.run();
+  matcher.STEPPER.moveTo(minimum_matching_position);
+  matcher.STEPPER.runToPosition();
   
   return (minimum_reflection);
 }
