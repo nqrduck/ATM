@@ -196,12 +196,9 @@ void loop() {
       Serial.println(target_frequency_MHz);
 
       uint32_t resonance_frequency = findCurrentResonanceFrequency(START_FREQUENCY, STOP_FREQUENCY, FREQUENCY_STEP);
-      //Serial.println(resonance_frequency); // debug line
 
       int32_t delta_frequency = target_frequency - resonance_frequency; // needs to be int -> negative frequencies possible
       if (abs(delta_frequency) > 5000000U) resonance_frequency = approximateResonance(target_frequency, resonance_frequency);
-
-      //Serial.println(resonance_frequency); // debug line
 
       resonance_frequency = bruteforceResonance(target_frequency, resonance_frequency);
       
@@ -318,6 +315,7 @@ int32_t findCurrentResonanceFrequency(uint32_t start_frequency, uint32_t stop_fr
     int minimum_reflection = 4096;
     int current_reflection = 0;
     uint32_t minimum_frequency = 0;
+    float reflection_loss = 0;
 
     adf4351.setf(start_frequency); // A frequency value needs to be set once -> there seems to be a bug with the first SPI call
   
@@ -333,6 +331,13 @@ int32_t findCurrentResonanceFrequency(uint32_t start_frequency, uint32_t stop_fr
       }
        
     }
+
+    reflection_loss = calculateRL(minimum_frequency); 
+    if (reflection_loss > -8){
+      Serial.println("Resonance could not be found.");
+      return -1;
+    }
+    
     return minimum_frequency;
 }
 
@@ -353,8 +358,14 @@ int32_t approximateResonance(uint32_t target_frequency, uint32_t current_resonan
   // @ Optimization possibility: -> just scan plausible area, would reduce half the scan time
   int32_t one_revolution_resonance = findCurrentResonanceFrequency(current_resonance_frequency - 30000000U, current_resonance_frequency + 30000000U, FREQUENCY_STEP); 
   //Serial.println(one_revolution_resonance);
-  
+
   int32_t delta_one_revolution_frequency = one_revolution_resonance - current_resonance_frequency;
+
+  //Plausibility Check - prevents the stepper from turning forever. 
+  if ((one_revolution_resonance == -1) || (abs(delta_one_revolution_frequency) > 20000000U)){
+    Serial.println("Tuning and matching not possible - homing needed.");
+    return -1;
+  }
   
   //Serial.println(delta_one_revolution_frequency);
   //Serial.println(float) delta_frequency / (float) delta_one_revolution_frequency);
