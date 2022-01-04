@@ -531,7 +531,7 @@ int optimizeMatching(uint32_t current_resonance_frequency){
   
 
   // This tries to find the minimum reflection while ignoring the change in resonance -> it always looks for minima within 
-  iteration_steps = rotation * STEPS_PER_ROTATION / 2;
+  iteration_steps = rotation * (STEPS_PER_ROTATION / 4);
 
   DEBUG_PRINT(iteration_steps);
 
@@ -616,7 +616,7 @@ int sumReflectionAroundFrequency(uint32_t center_frequency){
     for (uint32_t frequency = center_frequency - 500000U; frequency < center_frequency + 500000U; frequency+= FREQUENCY_STEP / 20) {
       adf4351.setf(frequency);
       delay(10);
-      sum_reflection += readReflection(8); 
+      sum_reflection += readReflection(16); 
     }
     
     return sum_reflection;
