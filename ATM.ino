@@ -515,7 +515,7 @@ int optimizeMatching(uint32_t current_resonance_frequency){
   float minimum_reflection = 4096;
   float current_reflection = 0;
   int minimum_matching_position = 0; 
-  float last_reflection = 0;
+  float last_reflection = 4096;
   int rotation = 1;
 
   int ITERATIONS = 25; // //100 equals one full rotation
@@ -525,32 +525,42 @@ int optimizeMatching(uint32_t current_resonance_frequency){
   
 
   // This tries to find the minimum reflection while ignoring the change in resonance -> it always looks for minima within 
-  iteration_steps = rotation * STEPS_PER_ROTATION / 4;
+  iteration_steps = rotation * STEPS_PER_ROTATION / 2;
 
   adf4351.setf(current_resonance_frequency);
   for (int i = 0; i < ITERATIONS; i ++){
+    DEBUG_PRINT("Iteration");
     
     matcher.STEPPER.move(iteration_steps);
     matcher.STEPPER.runToPosition();
 
-    current_resonance_frequency = findCurrentResonanceFrequency(current_resonance_frequency - 5000000U, current_resonance_frequency + 5000000U, FREQUENCY_STEP / 2);
+    delay(250);
+
+    current_resonance_frequency = findCurrentResonanceFrequency(current_resonance_frequency - 1000000U, current_resonance_frequency + 1000000U, FREQUENCY_STEP / 10);
     
-    current_reflection = getReflectionRMS(current_resonance_frequency);     
+    adf4351.setf(current_resonance_frequency);
+    delay(100);
+    
+    current_reflection = readReflection(64);;     
 
     if (current_reflection < minimum_reflection){
         minimum_matching_position = matcher.STEPPER.currentPosition();
         minimum_reflection = current_reflection;
-        
+        DEBUG_PRINT("Minimum");
+        DEBUG_PRINT(minimum_matching_position);
      }
     
-    /*
+    
     if (current_reflection > last_reflection) {
       rotation *= -1;
       iteration_steps /= 2;
       iteration_steps *= rotation;
-    }*/
+    }
 
+    DEBUG_PRINT(matcher.STEPPER.currentPosition());
+    DEBUG_PRINT(current_resonance_frequency);
     DEBUG_PRINT(last_reflection);
+    
     last_reflection = current_reflection;
     
     if(iteration_steps == 0) break;   
@@ -562,6 +572,8 @@ int optimizeMatching(uint32_t current_resonance_frequency){
   
   matcher.STEPPER.moveTo(minimum_matching_position);
   matcher.STEPPER.runToPosition();
+
+  DEBUG_PRINT(matcher.STEPPER.currentPosition());
   
   return (minimum_reflection);
 }
