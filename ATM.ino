@@ -5,6 +5,14 @@
 
 #include "ADF4351.h"
 
+#define DEBUG 
+
+#ifdef DEBUG
+  #define DEBUG_PRINT(x)  Serial.println (x)
+#else
+  #define DEBUG_PRINT(x)
+#endif
+
 //SPI Pins
 #define SCLK_PIN 14
 #define MOSI_PIN 13
@@ -28,7 +36,7 @@
 #define STEP_PIN_M2  5  
 #define CS_PIN_M2    18 
 
-#define DIAG1_PIN_M2 0 // used for homing
+#define DIAG1_PIN_M2 4 // used for homing
 
 // Stall Detection sensitivity
 #define STALL_VALUE 16 // [-64..63]
@@ -43,7 +51,7 @@
 
 // Stepper Settings
 #define STEPS_PER_ROTATION 3200U // 200 * 16 -> Microstepping
-#define TUNING_STEPPER_HOME 27600U
+#define TUNING_STEPPER_HOME 30800U
 #define MATCHING_STEPPER_HOME 32000U
 
 ADF4351 adf4351(SCLK_PIN, MOSI_PIN, LE_PIN, CE_PIN); // declares object PLL of type ADF4351
@@ -246,10 +254,10 @@ void loop() {
       uint32_t frequency = validateInput(frequency_MHz);
       if (frequency == 0) return;
 
-      float reflection_loss = calculateRL(frequency);
+      float reflection_loss = getReflectionRMS(frequency);
       Serial.println("For frequency:");
       Serial.println(frequency);
-      Serial.println("Reflection Loss in dB is:");
+      Serial.println("RMS of the reflection is:");
       Serial.println(reflection_loss);
 
     //optimize Matching 
@@ -261,10 +269,10 @@ void loop() {
 
       optimizeMatching(resonance_frequency);
    
-    // Invalid Input
     } else {     
       Serial.println("Invalid Input");
     }
+    
   }
 
 }
@@ -374,7 +382,7 @@ int32_t findCurrentResonanceFrequency(uint32_t start_frequency, uint32_t stop_fr
     int minimum_reflection = 4096;
     int current_reflection = 0;
     uint32_t minimum_frequency = 0;
-    float reflection_loss = 0;
+    float reflection_rms = 0;
 
     adf4351.setf(start_frequency); // A frequency value needs to be set once -> there seems to be a bug with the first SPI call
   
@@ -391,9 +399,10 @@ int32_t findCurrentResonanceFrequency(uint32_t start_frequency, uint32_t stop_fr
        
     }
 
-    reflection_loss = calculateRL(minimum_frequency); 
-    if (reflection_loss > -8){
+    reflection_rms = getReflectionRMS(minimum_frequency); 
+    if (reflection_rms > 10){
       Serial.println("Resonance could not be found.");
+      Serial.println(reflection_rms);
       return -1;
     }
     
@@ -412,28 +421,33 @@ int32_t approximateResonance(uint32_t target_frequency, uint32_t current_resonan
 
   tuner.STEPPER.move(STEPS_PER_ROTATION * rotation); // This needs to be changed
   tuner.STEPPER.runToPosition();
-  //step_n(STEPS_PER_ROTATION);
 
   // @ Optimization possibility: -> just scan plausible area, would reduce half the scan time
   int32_t one_revolution_resonance = findCurrentResonanceFrequency(current_resonance_frequency - 30000000U, current_resonance_frequency + 30000000U, FREQUENCY_STEP); 
-  //Serial.println(one_revolution_resonance);
+  
+  DEBUG_PRINT(one_revolution_resonance);
 
   int32_t delta_one_revolution_frequency = one_revolution_resonance - current_resonance_frequency;
 
   //Plausibility Check - prevents the stepper from turning forever. 
-  if ((one_revolution_resonance == -1) || (abs(delta_one_revolution_frequency) > 20000000U)){
+  if ((one_revolution_resonance == -1) || (abs(delta_one_revolution_frequency) > 30000000U)){
     Serial.println("Tuning and matching not possible - homing needed.");
     return -1;
   }
   
-  //Serial.println(delta_one_revolution_frequency);
-  //Serial.println(float) delta_frequency / (float) delta_one_revolution_frequency);
 
   int32_t steps_to_delta_frequency = ((float) delta_frequency / (float) delta_one_revolution_frequency) * STEPS_PER_ROTATION * rotation;
 
-  tuner.STEPPER.move(steps_to_delta_frequency);
+  DEBUG_PRINT(delta_one_revolution_frequency);
+  DEBUG_PRINT(delta_frequency);
+  
+  DEBUG_PRINT(tuner.STEPPER.currentPosition());
+  DEBUG_PRINT(steps_to_delta_frequency);
+
+  tuner.STEPPER.move(tuner.STEPPER.currentPosition() - steps_to_delta_frequency);
   tuner.STEPPER.runToPosition();
-  //step_n(STEPS_PER_ROTATION - steps_to_delta_frequency);
+
+  DEBUG_PRINT(tuner.STEPPER.currentPosition());
 
   current_resonance_frequency = findCurrentResonanceFrequency(target_frequency - 5000000U, target_frequency + 5000000U, FREQUENCY_STEP);
   return(current_resonance_frequency);
@@ -496,15 +510,19 @@ int32_t bruteforceResonance(uint32_t target_frequency, uint32_t current_resonanc
 // Matcher clockwise lowers resonance frequency
 
 int optimizeMatching(uint32_t current_resonance_frequency){
-  int minimum_reflection = 4096;
-  int current_reflection = 0;
+  float minimum_reflection = 4096;
+  float current_reflection = 0;
   int minimum_matching_position = 0; 
-  int last_minimum_reflection = 0;
+  float last_minimum_reflection = 0;
   int rotation = 1;
 
   int ITERATIONS = 25; // //100 equals one full rotation
   int iteration_steps = 0;
 
+  // Look which rotation direction improves matching. 
+  
+
+  // This tries to find the minimum reflection while ignoring the change in resonance -> it always looks for minima within 
   iteration_steps = rotation * STEPS_PER_ROTATION / 4;
 
   adf4351.setf(current_resonance_frequency);
@@ -514,9 +532,8 @@ int optimizeMatching(uint32_t current_resonance_frequency){
     matcher.STEPPER.runToPosition();
 
     current_resonance_frequency = findCurrentResonanceFrequency(current_resonance_frequency - 5000000U, current_resonance_frequency + 5000000U, FREQUENCY_STEP / 2);
-    adf4351.setf(current_resonance_frequency);
     
-    current_reflection = readReflection(64);     
+    current_reflection = getReflectionRMS(current_resonance_frequency);     
 
     if (current_reflection < minimum_reflection){
         minimum_matching_position = matcher.STEPPER.currentPosition();
