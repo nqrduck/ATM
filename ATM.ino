@@ -419,6 +419,8 @@ int32_t approximateResonance(uint32_t target_frequency, uint32_t current_resonan
   if (delta_frequency < 0) rotation = -1; // negative delta means currentresonance is to high, hence anticlockwise movement is necessary
   else rotation = 1;
 
+  int start_position = tuner.STEPPER.currentPosition();
+
   tuner.STEPPER.move(STEPS_PER_ROTATION * rotation); // This needs to be changed
   tuner.STEPPER.runToPosition();
 
@@ -444,7 +446,7 @@ int32_t approximateResonance(uint32_t target_frequency, uint32_t current_resonan
   DEBUG_PRINT(tuner.STEPPER.currentPosition());
   DEBUG_PRINT(steps_to_delta_frequency);
 
-  tuner.STEPPER.move(tuner.STEPPER.currentPosition() - steps_to_delta_frequency);
+  tuner.STEPPER.moveTo(start_position + steps_to_delta_frequency);
   tuner.STEPPER.runToPosition();
 
   DEBUG_PRINT(tuner.STEPPER.currentPosition());
@@ -513,7 +515,7 @@ int optimizeMatching(uint32_t current_resonance_frequency){
   float minimum_reflection = 4096;
   float current_reflection = 0;
   int minimum_matching_position = 0; 
-  float last_minimum_reflection = 0;
+  float last_reflection = 0;
   int rotation = 1;
 
   int ITERATIONS = 25; // //100 equals one full rotation
@@ -541,19 +543,20 @@ int optimizeMatching(uint32_t current_resonance_frequency){
         
      }
     
-
-    if (last_minimum_reflection > minimum_reflection) {
+    /*
+    if (current_reflection > last_reflection) {
       rotation *= -1;
       iteration_steps /= 2;
       iteration_steps *= rotation;
-    }
+    }*/
 
-    Serial.println(last_minimum_reflection);
-    last_minimum_reflection = minimum_reflection;
+    DEBUG_PRINT(last_reflection);
+    last_reflection = current_reflection;
+    
     if(iteration_steps == 0) break;   
 
     
-    Serial.println(current_reflection);
+    DEBUG_PRINT(current_reflection);
     
   }
   
