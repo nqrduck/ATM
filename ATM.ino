@@ -512,20 +512,28 @@ int32_t bruteforceResonance(uint32_t target_frequency, uint32_t current_resonanc
 // Matcher clockwise lowers resonance frequency
 
 int optimizeMatching(uint32_t current_resonance_frequency){
+  int ITERATIONS = 10; // //100 equals one full rotation
+  int iteration_steps = 0;
+  
   int minimum_reflection = 10e5;
   int current_reflection = 0;
   int minimum_matching_position = 0; 
   int last_reflection = 10e5;
   int rotation = 1;
 
-  int ITERATIONS = 25; // //100 equals one full rotation
-  int iteration_steps = 0;
+  
+ 
 
   // Look which rotation direction improves matching. 
+  rotation = getMatchRotation(current_resonance_frequency);
+
+  DEBUG_PRINT(rotation);
   
 
   // This tries to find the minimum reflection while ignoring the change in resonance -> it always looks for minima within 
   iteration_steps = rotation * STEPS_PER_ROTATION / 2;
+
+  DEBUG_PRINT(iteration_steps);
 
   adf4351.setf(current_resonance_frequency);
   for (int i = 0; i < ITERATIONS; i ++){
@@ -538,17 +546,8 @@ int optimizeMatching(uint32_t current_resonance_frequency){
     delay(250);
 
     current_resonance_frequency = findCurrentResonanceFrequency(current_resonance_frequency - 1000000U, current_resonance_frequency + 1000000U, FREQUENCY_STEP / 10);
-
-    // sum approach
-    for (uint32_t frequency = current_resonance_frequency - 500000U; frequency < current_resonance_frequency + 500000U; frequency+= FREQUENCY_STEP / 20) {
-      adf4351.setf(frequency);
-      delay(10);
-      current_reflection += readReflection(8); 
-    }
     
-    
-    
-    
+    current_reflection = sumReflectionAroundFrequency(current_resonance_frequency);
 
     if (current_reflection < minimum_reflection){
         minimum_matching_position = matcher.STEPPER.currentPosition();
@@ -583,4 +582,42 @@ int optimizeMatching(uint32_t current_resonance_frequency){
   DEBUG_PRINT(matcher.STEPPER.currentPosition());
   
   return (minimum_reflection);
+}
+
+int getMatchRotation(uint32_t current_resonance_frequency){
+
+  
+  matcher.STEPPER.move(STEPS_PER_ROTATION);
+  matcher.STEPPER.runToPosition();
+  
+  current_resonance_frequency = findCurrentResonanceFrequency(current_resonance_frequency - 1000000U, current_resonance_frequency + 1000000U, FREQUENCY_STEP / 10);
+  int clockwise_match = sumReflectionAroundFrequency(current_resonance_frequency);
+
+  matcher.STEPPER.move(-2* STEPS_PER_ROTATION);
+  matcher.STEPPER.runToPosition();
+
+  current_resonance_frequency = findCurrentResonanceFrequency(current_resonance_frequency - 1000000U, current_resonance_frequency + 1000000U, FREQUENCY_STEP / 10);
+  int anticlockwise_match = sumReflectionAroundFrequency(current_resonance_frequency);
+
+  matcher.STEPPER.move(STEPS_PER_ROTATION);
+  matcher.STEPPER.runToPosition();
+
+  DEBUG_PRINT(clockwise_match);
+  DEBUG_PRINT(anticlockwise_match);
+
+  if (clockwise_match < anticlockwise_match) return 1;
+  else return -1;
+  
+}
+
+int sumReflectionAroundFrequency(uint32_t center_frequency){
+  int sum_reflection = 0;
+  // sum approach -> cummulates reflection around resonance -> reduce influence of wrong minimum and noise
+    for (uint32_t frequency = center_frequency - 500000U; frequency < center_frequency + 500000U; frequency+= FREQUENCY_STEP / 20) {
+      adf4351.setf(frequency);
+      delay(10);
+      sum_reflection += readReflection(8); 
+    }
+    
+    return sum_reflection;
 }
