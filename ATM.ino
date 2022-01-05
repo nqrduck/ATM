@@ -15,8 +15,8 @@
 
 // Frequency Settings
 #define FREQUENCY_STEP 100000U // 100kHz frequency steps for initial frequency sweep
-#define START_FREQUENCY 80000000U // 80MHz 
-#define STOP_FREQUENCY 160000000 // 120MHz
+#define START_FREQUENCY 35000000U // 80MHz 
+#define STOP_FREQUENCY 200000000 // 120MHz
 
 ADF4351 adf4351(SCLK_PIN, MOSI_PIN, LE_PIN, CE_PIN); // declares object PLL of type ADF4351
 
@@ -41,7 +41,7 @@ void setup() {
   tuner.DRIVER.coolstep_min_speed(0xFFFFF); // 20bit max - needs to be set for stallguard 
   tuner.DRIVER.diag1_stall(1);
   tuner.DRIVER.diag1_active_high(1);
-  tuner.DRIVER.sg_stall_value(STALL_VALUE);
+  tuner.DRIVER.sg_stall_value(STALL_VALUE - 1);
   tuner.DRIVER.shaft_dir(0);
   tuner.DRIVER.stealthChop(1);   // Enable extremely quiet stepping
 
@@ -56,7 +56,7 @@ void setup() {
   matcher.DRIVER.coolstep_min_speed(0xFFFFF); // 20bit max - needs to be set for stallguard 
   matcher.DRIVER.diag1_stall(1);
   matcher.DRIVER.diag1_active_high(1);
-  matcher.DRIVER.sg_stall_value(STALL_VALUE);
+  matcher.DRIVER.sg_stall_value(STALL_VALUE - 2);
   matcher.DRIVER.shaft_dir(0);
   matcher.DRIVER.stealthChop(1);   // Enable extremely quiet stepping
   
@@ -147,11 +147,11 @@ void loop() {
       Serial.println("Resonance after tuning and matching is at:");
       Serial.println(resonance_frequency);
 
-    // calibration call
+    // home call
     // Perform the homing routine by looking for the limit of the capacitors
     // it also places the steppers in a way so there is a resonance dip inside the frequency range
     // CAREFULL -> The values are hardcoded, these need to be changed if there is a different coil in use
-    } else if (command == 'c'){
+    } else if (command == 'h'){
       Serial.println("Homing...");
       homeStepper(tuner);
       homeStepper(matcher);
@@ -187,7 +187,24 @@ void loop() {
       Serial.println(resonance_frequency);
 
       optimizeMatching(resonance_frequency);
-   
+
+    //calculate sum
+    } else if (command == 's'){
+      
+      float frequency_MHz = input_line.substring(1).toFloat();
+      uint32_t frequency = validateInput(frequency_MHz);
+      if (frequency == 0) return;
+
+      int sum = sumReflectionAroundFrequency(frequency);
+      Serial.println("For frequency:");
+      Serial.println(frequency);
+      Serial.println("Sum of the reflection is:");
+      Serial.println(sum);
+
+    // Calibration Call
+    } else if (command == 'c'){
+       Serial.println("Calibrating ...");
+       getCalibrationValues();
     } else {     
       Serial.println("Invalid Input");
     }
@@ -220,6 +237,24 @@ int readReflection(int averages){
   
 }
 
+void getCalibrationValues(){
+  uint32_t resonance_frequency = findCurrentResonanceFrequency(START_FREQUENCY, STOP_FREQUENCY, FREQUENCY_STEP);
+  
+  tuner.STEPPER.setCurrentPosition(0);
+  matcher.STEPPER.setCurrentPosition(0);
+  
+  int tuner_position = stallStepper(tuner);
+  
+  int matcher_position = stallStepper(matcher);
+
+  Serial.println("For Resonance frequency:");
+  Serial.println(resonance_frequency);
+  Serial.println("Tuner Calibration is:");
+  Serial.println(tuner_position);
+  Serial.println("Matcher Position is:");
+  Serial.println(matcher_position);
+}
+
 //should put the stepper stuff into a struct
 void homeStepper(Stepper stepper){ 
   stallStepper(stepper);
@@ -243,14 +278,19 @@ void homeStepper(Stepper stepper){
   
 }
 
-void stallStepper(Stepper stepper){
+int stallStepper(Stepper stepper){
   stepper.STEPPER.moveTo(-9999999);
   
   while (!digitalRead(stepper.STALL_PIN)){
     stepper.STEPPER.run();
   }
+  
+  DEBUG_PRINT(stepper.STEPPER.currentPosition());
 
   stepper.STEPPER.stop();
+
+  return stepper.STEPPER.currentPosition(); // returns value until limit is reached
+  
 }
 
 uint32_t automaticTM(uint32_t target_frequency){
@@ -451,7 +491,7 @@ int32_t bruteforceResonance(uint32_t target_frequency, uint32_t current_resonanc
 // Matcher clockwise lowers resonance frequency
 
 int optimizeMatching(uint32_t current_resonance_frequency){
-  int ITERATIONS = 10; // //100 equals one full rotation
+  int ITERATIONS = 20; // //100 equals one full rotation
   int iteration_steps = 0;
   
   int minimum_reflection = 10e5;
@@ -467,12 +507,13 @@ int optimizeMatching(uint32_t current_resonance_frequency){
   
 
   // This tries to find the minimum reflection while ignoring the change in resonance -> it always looks for minima within 
-  iteration_steps = rotation * (STEPS_PER_ROTATION / 4);
+  iteration_steps = rotation * (STEPS_PER_ROTATION / 10);
 
   DEBUG_PRINT(iteration_steps);
 
   adf4351.setf(current_resonance_frequency);
   for (int i = 0; i < ITERATIONS; i ++){
+  //while(minimum_reflection > 270000){
     DEBUG_PRINT("Iteration");
     current_reflection = 0;
     
@@ -481,7 +522,7 @@ int optimizeMatching(uint32_t current_resonance_frequency){
 
     delay(250);
 
-    current_resonance_frequency = findCurrentResonanceFrequency(current_resonance_frequency - 1000000U, current_resonance_frequency + 1000000U, FREQUENCY_STEP / 10);
+    current_resonance_frequency = findCurrentResonanceFrequency(current_resonance_frequency - 1000000U, current_resonance_frequency + 1000000U, FREQUENCY_STEP);
     
     current_reflection = sumReflectionAroundFrequency(current_resonance_frequency);
 
@@ -493,11 +534,11 @@ int optimizeMatching(uint32_t current_resonance_frequency){
      }
     
     
-    if (current_reflection > last_reflection) {
+    /*if (current_reflection > last_reflection) {
       rotation *= -1;
-      iteration_steps /= 2;
+      //iteration_steps /= 2;
       iteration_steps *= rotation;
-    }
+    }*/
 
     DEBUG_PRINT(matcher.STEPPER.currentPosition());
     DEBUG_PRINT(current_resonance_frequency);
@@ -549,8 +590,9 @@ int getMatchRotation(uint32_t current_resonance_frequency){
 
 int sumReflectionAroundFrequency(uint32_t center_frequency){
   int sum_reflection = 0;
+  
   // sum approach -> cummulates reflection around resonance -> reduce influence of wrong minimum and noise
-    for (uint32_t frequency = center_frequency - 500000U; frequency < center_frequency + 500000U; frequency+= FREQUENCY_STEP / 20) {
+    for (uint32_t frequency = center_frequency - 500000U; frequency < center_frequency + 500000U; frequency+= FREQUENCY_STEP / 10) {
       adf4351.setf(frequency);
       delay(10);
       sum_reflection += readReflection(16); 
