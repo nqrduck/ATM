@@ -3,56 +3,21 @@
 #include <MultiStepper.h>
 #include <math.h>  
 
-#include "ADF4351.h"
+#include "src/ADF4351/ADF4351.h"
+#include "src/Settings/Pins.h"
+#include "src/Settings/Positions.h"
+#include "src/Settings/Stepper.h"
+
 
 #define DEBUG 
 
-#ifdef DEBUG
-  #define DEBUG_PRINT(x)  Serial.println (x)
-#else
-  #define DEBUG_PRINT(x)
-#endif
+#include "src/Settings/Debug.h"
 
-//SPI Pins
-#define SCLK_PIN 14
-#define MOSI_PIN 13
-#define MISO_PIN 12
-
-//ADF Pins
-#define LE_PIN 27
-#define CE_PIN 25
-
-// Pins M1
-#define EN_PIN_M1    25  
-#define DIR_PIN_M1   33  
-#define STEP_PIN_M1  32  
-#define CS_PIN_M1    26  
-
-#define DIAG1_PIN_M1 2 // used for homing 
-
-// Pins M2
-#define EN_PIN_M2    17  
-#define DIR_PIN_M2   19  
-#define STEP_PIN_M2  5  
-#define CS_PIN_M2    18 
-
-#define DIAG1_PIN_M2 4 // used for homing
-
-// Stall Detection sensitivity
-#define STALL_VALUE 16 // [-64..63]
-
-//ADC Pin
-#define REFLECTION_PIN 15
 
 // Frequency Settings
 #define FREQUENCY_STEP 100000U // 100kHz frequency steps for initial frequency sweep
 #define START_FREQUENCY 80000000U // 80MHz 
 #define STOP_FREQUENCY 160000000 // 120MHz
-
-// Stepper Settings
-#define STEPS_PER_ROTATION 3200U // 200 * 16 -> Microstepping
-#define TUNING_STEPPER_HOME 30800U
-#define MATCHING_STEPPER_HOME 32000U
 
 ADF4351 adf4351(SCLK_PIN, MOSI_PIN, LE_PIN, CE_PIN); // declares object PLL of type ADF4351
 
@@ -61,13 +26,6 @@ TMC2130Stepper matching_driver = TMC2130Stepper(EN_PIN_M2, DIR_PIN_M2, STEP_PIN_
 
 AccelStepper tuning_stepper = AccelStepper(tuning_stepper.DRIVER, STEP_PIN_M1, DIR_PIN_M1);
 AccelStepper matching_stepper = AccelStepper(matching_stepper.DRIVER, STEP_PIN_M2, DIR_PIN_M2);
-
-struct Stepper{
-   AccelStepper STEPPER;
-   TMC2130Stepper DRIVER;
-   int STALL_PIN;
-   int HOME_POSITION;
-};
 
 Stepper tuner = {tuning_stepper, tuning_driver, DIAG1_PIN_M1, TUNING_STEPPER_HOME};
 
@@ -128,39 +86,6 @@ void setup() {
   adf4351.setrf(25000000U);
   adf4351.pwrlevel = 0; // This equals -4dBm*/
   adf4351.setf(START_FREQUENCY);
-
-  ///////////////////// TESTING //////////////////////////// -> This works reliably
-  /*unsigned long stime = millis();
-
-  uint32_t target_frequency = 105000000U;
-  Serial.println("_______________________________________________");
-  Serial.println("Start - Target frequency is:");
-  Serial.println(target_frequency);
-  uint32_t resonance_frequency = findCurrentResonanceFrequency(START_FREQUENCY, STOP_FREQUENCY, FREQUENCY_STEP);
-  Serial.println("Resonance is at:");
-  Serial.println(resonance_frequency);
-
-  resonance_frequency = approximateResonance(target_frequency, resonance_frequency);
-  Serial.println("Resonance after approximation is at:");
-  Serial.println(resonance_frequency);
-
-  resonance_frequency = bruteforceResonance(target_frequency, resonance_frequency);
-  Serial.println("Resonance after bruteforce is at:");
-  Serial.println(resonance_frequency);
-
-  /*int reflection = optimizeMatching(resonance_frequency);
-  Serial.println("Minimum Reflection is:");
-  Serial.println(reflection); 
-
-  resonance_frequency = findCurrentResonanceFrequency(START_FREQUENCY, STOP_FREQUENCY, FREQUENCY_STEP);
-  resonance_frequency = bruteforceResonance(target_frequency, resonance_frequency);
-  Serial.println("Resonance after bruteforce is at:");
-  Serial.println(resonance_frequency);*/
-
-  //Serial.println("Matched in s");
-  //Serial.println((millis()-stime)/ 1000);
-
-  
   
 }
 
@@ -218,12 +143,7 @@ void loop() {
       Serial.println("Tuning and Matching to target frequency in MHz (automatic mode):");
       Serial.println(target_frequency_MHz);
 
-      uint32_t resonance_frequency = findCurrentResonanceFrequency(START_FREQUENCY, STOP_FREQUENCY, FREQUENCY_STEP);
-
-      int32_t delta_frequency = target_frequency - resonance_frequency; // needs to be int -> negative frequencies possible
-      if (abs(delta_frequency) > 5000000U) resonance_frequency = approximateResonance(target_frequency, resonance_frequency);
-
-      resonance_frequency = bruteforceResonance(target_frequency, resonance_frequency);
+      uint32_t resonance_frequency = automaticTM(target_frequency);
       
       Serial.println("Resonance after tuning and matching is at:");
       Serial.println(resonance_frequency);
@@ -329,6 +249,23 @@ void stallStepper(Stepper stepper){
   }
 
   stepper.STEPPER.stop();
+}
+
+uint32_t automaticTM(uint32_t target_frequency){
+  uint32_t resonance_frequency = findCurrentResonanceFrequency(START_FREQUENCY, STOP_FREQUENCY, FREQUENCY_STEP);
+
+  int32_t delta_frequency = target_frequency - resonance_frequency; // needs to be int -> negative frequencies possible
+  if (abs(delta_frequency) > 5000000U) resonance_frequency = approximateResonance(target_frequency, resonance_frequency);
+
+  resonance_frequency = bruteforceResonance(target_frequency, resonance_frequency);
+
+  optimizeMatching(resonance_frequency);
+
+  resonance_frequency = findCurrentResonanceFrequency(resonance_frequency - 1000000U, resonance_frequency + 1000000U, FREQUENCY_STEP / 2);
+
+  resonance_frequency = bruteforceResonance(target_frequency, resonance_frequency);
+
+  return resonance_frequency;
 }
 
 // calculates the Reflection Loss at a specified frequency
@@ -587,19 +524,19 @@ int optimizeMatching(uint32_t current_resonance_frequency){
 int getMatchRotation(uint32_t current_resonance_frequency){
 
   
-  matcher.STEPPER.move(STEPS_PER_ROTATION);
+  matcher.STEPPER.move(STEPS_PER_ROTATION / 2);
   matcher.STEPPER.runToPosition();
   
   current_resonance_frequency = findCurrentResonanceFrequency(current_resonance_frequency - 1000000U, current_resonance_frequency + 1000000U, FREQUENCY_STEP / 10);
   int clockwise_match = sumReflectionAroundFrequency(current_resonance_frequency);
 
-  matcher.STEPPER.move(-2* STEPS_PER_ROTATION);
+  matcher.STEPPER.move(-2* (STEPS_PER_ROTATION / 2));
   matcher.STEPPER.runToPosition();
 
   current_resonance_frequency = findCurrentResonanceFrequency(current_resonance_frequency - 1000000U, current_resonance_frequency + 1000000U, FREQUENCY_STEP / 10);
   int anticlockwise_match = sumReflectionAroundFrequency(current_resonance_frequency);
 
-  matcher.STEPPER.move(STEPS_PER_ROTATION);
+  matcher.STEPPER.move(STEPS_PER_ROTATION / 2);
   matcher.STEPPER.runToPosition();
 
   DEBUG_PRINT(clockwise_match);
