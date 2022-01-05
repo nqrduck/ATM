@@ -4,10 +4,9 @@
 #include <math.h>  
 
 #include "src/ADF4351/ADF4351.h"
-#include "src/Settings/Pins.h"
-#include "src/Settings/Positions.h"
-#include "src/Settings/Stepper.h"
-
+#include "src/Settings/Pins.h" // Pins are defined here
+#include "src/Settings/Positions.h" // Calibrated frequency positions are defined her
+#include "src/Settings/Stepper.h" // Stepper specific values are defined here
 
 #define DEBUG 
 
@@ -52,7 +51,7 @@ void setup() {
   Serial.println(tuning_driver.DRV_STATUS(), BIN);
 
   matcher.DRIVER.begin();       // Initiate pins and registeries
-  matcher.DRIVER.rms_current(200);   // Set stepper current to 800mA. The command is the same as command TMC2130.setCurrent(600, 0.11, 0.5);
+  matcher.DRIVER.rms_current(200);   // Set stepper current to 200mA. The command is the same as command TMC2130.setCurrent(600, 0.11, 0.5);
   matcher.DRIVER.microsteps(16);
   matcher.DRIVER.coolstep_min_speed(0xFFFFF); // 20bit max - needs to be set for stallguard 
   matcher.DRIVER.diag1_stall(1);
@@ -224,16 +223,19 @@ int readReflection(int averages){
 //should put the stepper stuff into a struct
 void homeStepper(Stepper stepper){ 
   stallStepper(stepper);
+  stepper.STEPPER.setCurrentPosition(0);
+  stepper.STEPPER.moveTo(1000);
+  stepper.STEPPER.runToPosition();
 
-  /*tuning_stepper.setMaxSpeed(3000); 
-  tuning_stepper.setAcceleration(3000); 
+  stepper.STEPPER.setMaxSpeed(3000); 
+  stepper.STEPPER.setAcceleration(3000); 
 
-  delay(500);
-  
-  stallStepper(tuning_stepper);
+  stepper.DRIVER.sg_stall_value(-64); // Stall value needs to be lowered because of slower stepper
+  stallStepper(stepper);
+  stepper.DRIVER.sg_stall_value(STALL_VALUE);
 
-  tuning_stepper.setMaxSpeed(12000); 
-  tuning_stepper.setAcceleration(12000); */
+  stepper.STEPPER.setMaxSpeed(12000); 
+  stepper.STEPPER.setAcceleration(12000);
 
   stepper.STEPPER.setCurrentPosition(0);
   stepper.STEPPER.moveTo(stepper.HOME_POSITION);
@@ -458,9 +460,6 @@ int optimizeMatching(uint32_t current_resonance_frequency){
   int last_reflection = 10e5;
   int rotation = 1;
 
-  
- 
-
   // Look which rotation direction improves matching. 
   rotation = getMatchRotation(current_resonance_frequency);
 
@@ -521,6 +520,7 @@ int optimizeMatching(uint32_t current_resonance_frequency){
   return (minimum_reflection);
 }
 
+// probably do this for multiple positions in each direction
 int getMatchRotation(uint32_t current_resonance_frequency){
 
   
