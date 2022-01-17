@@ -1,9 +1,5 @@
 // Stepper Settings
-#define MICROSTEPS 16
-#define STEPS_PER_ROTATION 200U * MICROSTEPS // 1.8° per step
-
-#define MAXSPEED 12000U
-#define ACCELERATION 12000U
+#define STEPS_PER_ROTATION 3200U // 200 * 16 -> Microstepping
 
 // Stall Detection sensitivity
 #define STALL_VALUE 16 // [-64..63]
