@@ -35,8 +35,8 @@ void setup()
 
   pinMode(MISO_PIN, INPUT_PULLUP); // Seems to be necessary for SPI to work
 
-  tuner.DRIVER.begin();          // Initiate pins and registeries
-  tuner.DRIVER.rms_current(400); // Set stepper current to 800mA. The command is the same as command TMC2130.setCurrent(600, 0.11, 0.5);
+  tuner.DRIVER.begin();          // Initiate pins
+  tuner.DRIVER.rms_current(400); // Set stepper current to 400mA.
   tuner.DRIVER.microsteps(16);
   tuner.DRIVER.coolstep_min_speed(0xFFFFF); // 20bit max - needs to be set for stallguard
   tuner.DRIVER.diag1_stall(1);
@@ -482,6 +482,9 @@ int32_t bruteforceResonance(uint32_t target_frequency, uint32_t current_resonanc
   int ITERATIONS = 25; // Iteration depth
   int iteration_steps = 0;
 
+  float MATCHING_THRESHOLD = 140; // if the reflection at the current resonance frequency is lower than this threshold re-matching is necessary -> calibrate to ~RL-8dB
+  float resonance_reflection = 0;
+
   int32_t delta_frequency = target_frequency - current_resonance_frequency;
 
   if (delta_frequency < 0)
@@ -489,7 +492,7 @@ int32_t bruteforceResonance(uint32_t target_frequency, uint32_t current_resonanc
   else
     rotation = 1;
 
-  iteration_steps = rotation * (STEPS_PER_ROTATION / 40);
+  iteration_steps = rotation * (STEPS_PER_ROTATION / 20);
 
   //'bruteforce' the stepper position to match the target frequency
 
@@ -502,12 +505,20 @@ int32_t bruteforceResonance(uint32_t target_frequency, uint32_t current_resonanc
     current_resonance_frequency = findCurrentResonanceFrequency(current_resonance_frequency - 5000000U, current_resonance_frequency + 5000000U, FREQUENCY_STEP / 2);
 
     DEBUG_PRINT(current_resonance_frequency);
-    //Serial.println(rotation);
-    //Serial.println(iteration_steps);
 
     // Stops the iteration if the minima matches the target frequency
     if (current_resonance_frequency == target_frequency)
       break;
+
+    adf4351.setf(current_resonance_frequency);
+    delay(10);
+    resonance_reflection = readReflection(16);
+    DEBUG_PRINT(resonance_reflection);
+
+    if (resonance_reflection < MATCHING_THRESHOLD)
+    {
+      optimizeMatching(current_resonance_frequency);
+    }
 
     // This means the bruteforce resolution was too high and the resonance frequency overshoot
     // therfore the turn direction gets inverted and the increment halfed
@@ -533,7 +544,7 @@ int32_t bruteforceResonance(uint32_t target_frequency, uint32_t current_resonanc
 
 int optimizeMatching(uint32_t current_resonance_frequency)
 {
-  int ITERATIONS = 20; // //100 equals one full rotation
+  int ITERATIONS = 25; // //100 equals one full rotation
   int iteration_steps = 0;
 
   int maximum_reflection = 0;
