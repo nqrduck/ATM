@@ -284,7 +284,6 @@ void getCalibrationValues()
   Serial.println(matcher_position);
 }
 
-//should put the stepper stuff into a struct
 void homeStepper(Stepper stepper)
 {
   stallStepper(stepper);
@@ -393,7 +392,7 @@ int32_t findCurrentResonanceFrequency(uint32_t start_frequency, uint32_t stop_fr
   int maximum_reflection = 0;
   int current_reflection = 0;
   uint32_t minimum_frequency = 0;
-  float reflection_rms = 0;
+  float reflection = 0;
 
   adf4351.setf(start_frequency); // A frequency value needs to be set once -> there seems to be a bug with the first SPI call
 
@@ -411,12 +410,15 @@ int32_t findCurrentResonanceFrequency(uint32_t start_frequency, uint32_t stop_fr
     }
   }
 
-  /*reflection_rms = getReflectionRMS(minimum_frequency); 
-    if (reflection_rms < 150){
-      Serial.println("Resonance could not be found.");
-      Serial.println(reflection_rms);
-      return -1;
-    }*/
+  adf4351.setf(minimum_frequency);
+  delay(10);
+  reflection = readReflection(16);
+  if (reflection < 130)
+  {
+    Serial.println("Resonance could not be found.");
+    Serial.println(reflection);
+    return -1;
+  }
 
   return minimum_frequency;
 }
@@ -544,7 +546,7 @@ int32_t bruteforceResonance(uint32_t target_frequency, uint32_t current_resonanc
 
 int optimizeMatching(uint32_t current_resonance_frequency)
 {
-  int ITERATIONS = 25; // //100 equals one full rotation
+  int ITERATIONS = 25;
   int iteration_steps = 0;
 
   int maximum_reflection = 0;
@@ -567,7 +569,7 @@ int optimizeMatching(uint32_t current_resonance_frequency)
   for (int i = 0; i < ITERATIONS; i++)
   {
     //while(minimum_reflection > 270000){
-    DEBUG_PRINT("Iteration");
+    DEBUG_PRINT(i);
     current_reflection = 0;
 
     matcher.STEPPER.move(iteration_steps);
@@ -575,7 +577,7 @@ int optimizeMatching(uint32_t current_resonance_frequency)
 
     delay(250);
 
-    current_resonance_frequency = findCurrentResonanceFrequency(current_resonance_frequency - 1000000U, current_resonance_frequency + 1000000U, FREQUENCY_STEP);
+    current_resonance_frequency = findCurrentResonanceFrequency(current_resonance_frequency - 1000000U, current_resonance_frequency + 1000000U, FREQUENCY_STEP / 2);
 
     adf4351.setf(current_resonance_frequency);
     delay(10);

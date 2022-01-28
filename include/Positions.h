@@ -1,5 +1,6 @@
-// Position @ 50, 75, 100, 125, 150, 175, 200 MHz
-struct FREQUENCY_POSITION {
+// Position @ 40, 60, 80, 100, 120, 140, 160, 180, 200, 220 MHz
+struct FREQUENCY_POSITION
+{
   uint32_t FREQUENCY;
   uint32_t TUNING_POSITION;
   uint32_t MATCHING_POSITION;
