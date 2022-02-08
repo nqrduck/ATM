@@ -194,7 +194,7 @@ void loop()
       Serial.println("RMS of the reflection is:");
       Serial.println(reflection_loss);
 
-      //optimize Matching
+      // optimize Matching
     }
     else if (command == 'm')
     {
@@ -205,7 +205,7 @@ void loop()
 
       optimizeMatching(resonance_frequency);
 
-      //calculate sum
+      // calculate sum
     }
     else if (command == 's')
     {
@@ -326,8 +326,8 @@ uint32_t automaticTM(uint32_t target_frequency)
 {
   uint32_t resonance_frequency = findCurrentResonanceFrequency(START_FREQUENCY, STOP_FREQUENCY, FREQUENCY_STEP);
 
-  //int32_t delta_frequency = target_frequency - resonance_frequency; // needs to be int -> negative frequencies possible
-  //if (abs(delta_frequency) > 5000000U) resonance_frequency = approximateResonance(target_frequency, resonance_frequency);
+  // int32_t delta_frequency = target_frequency - resonance_frequency; // needs to be int -> negative frequencies possible
+  // if (abs(delta_frequency) > 5000000U) resonance_frequency = approximateResonance(target_frequency, resonance_frequency);
 
   resonance_frequency = bruteforceResonance(target_frequency, resonance_frequency);
 
@@ -341,8 +341,8 @@ uint32_t automaticTM(uint32_t target_frequency)
 }
 
 // calculates the Reflection Loss at a specified frequency
-//24mV/dB slope
-//0dBV defined as 1V Sin RMS
+// 24mV/dB slope
+// 0dBV defined as 1V Sin RMS
 // Would expect 1.74V as output for unmatched coil -> but it's 1.65V => ~10mV at Logamp
 
 // Measurments: with 40dB LNA @85MHz
@@ -417,7 +417,7 @@ int32_t findCurrentResonanceFrequency(uint32_t start_frequency, uint32_t stop_fr
   {
     Serial.println("Resonance could not be found.");
     Serial.println(reflection);
-    return -1;
+    return 0;
   }
 
   return minimum_frequency;
@@ -447,7 +447,7 @@ int32_t approximateResonance(uint32_t target_frequency, uint32_t current_resonan
 
   int32_t delta_one_revolution_frequency = one_revolution_resonance - current_resonance_frequency;
 
-  //Plausibility Check - prevents the stepper from turning forever.
+  // Plausibility Check - prevents the stepper from turning forever.
   if ((one_revolution_resonance == -1) || (abs(delta_one_revolution_frequency) > 30000000U))
   {
     Serial.println("Tuning and matching not possible - homing needed.");
@@ -568,7 +568,7 @@ int optimizeMatching(uint32_t current_resonance_frequency)
   adf4351.setf(current_resonance_frequency);
   for (int i = 0; i < ITERATIONS; i++)
   {
-    //while(minimum_reflection > 270000){
+    // while(minimum_reflection > 270000){
     DEBUG_PRINT(i);
     current_reflection = 0;
 
@@ -583,7 +583,7 @@ int optimizeMatching(uint32_t current_resonance_frequency)
     delay(10);
 
     current_reflection = readReflection(64);
-    //current_reflection = sumReflectionAroundFrequency(current_resonance_frequency);
+    // current_reflection = sumReflectionAroundFrequency(current_resonance_frequency);
 
     if (current_reflection > maximum_reflection)
     {
@@ -627,8 +627,9 @@ int getMatchRotation(uint32_t current_resonance_frequency)
   matcher.STEPPER.runToPosition();
 
   current_resonance_frequency = findCurrentResonanceFrequency(current_resonance_frequency - 1000000U, current_resonance_frequency + 1000000U, FREQUENCY_STEP / 10);
-  //int clockwise_match = sumReflectionAroundFrequency(current_resonance_frequency);
-  adf4351.setf(current_resonance_frequency);
+  // int clockwise_match = sumReflectionAroundFrequency(current_resonance_frequency);
+  if (current_resonance_frequency != 0)
+    adf4351.setf(current_resonance_frequency);
   delay(10);
   int clockwise_match = readReflection(64);
 
@@ -636,7 +637,7 @@ int getMatchRotation(uint32_t current_resonance_frequency)
   matcher.STEPPER.runToPosition();
 
   current_resonance_frequency = findCurrentResonanceFrequency(current_resonance_frequency - 1000000U, current_resonance_frequency + 1000000U, FREQUENCY_STEP / 10);
-  //int anticlockwise_match = sumReflectionAroundFrequency(current_resonance_frequency);
+  // int anticlockwise_match = sumReflectionAroundFrequency(current_resonance_frequency);
   adf4351.setf(current_resonance_frequency);
   delay(10);
   int anticlockwise_match = readReflection(64);
