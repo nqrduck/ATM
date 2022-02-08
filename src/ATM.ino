@@ -83,7 +83,7 @@ void setup()
   adf4351.begin();
 
   adf4351.setrf(25000000U);
-  adf4351.pwrlevel = 0; // This equals -4dBm*/
+  adf4351.pwrlevel = 2; // This equals -4dBm*/
   adf4351.setf(START_FREQUENCY);
 }
 
