@@ -594,7 +594,6 @@ int optimizeMatching(uint32_t current_resonance_frequency)
   adf4351.setf(current_resonance_frequency);
   for (int i = 0; i < ITERATIONS; i++)
   {
-    // while(minimum_reflection > 270000){
     DEBUG_PRINT(i);
     current_reflection = 0;
 
@@ -608,8 +607,8 @@ int optimizeMatching(uint32_t current_resonance_frequency)
     adf4351.setf(current_resonance_frequency);
     delay(10);
 
-    current_reflection = readReflection(16);
-    // current_reflection = sumReflectionAroundFrequency(current_resonance_frequency);
+    // current_reflection = readReflection(16);
+    current_reflection = sumReflectionAroundFrequency(current_resonance_frequency);
 
     if (current_reflection > maximum_reflection)
     {
