@@ -411,7 +411,7 @@ int32_t findCurrentResonanceFrequency(uint32_t start_frequency, uint32_t stop_fr
   }
 
   adf4351.setf(minimum_frequency);
-  delay(10);
+  delay(50);
   reflection = readReflection(16);
   if (reflection < 130)
   {
@@ -420,10 +420,24 @@ int32_t findCurrentResonanceFrequency(uint32_t start_frequency, uint32_t stop_fr
     return 0;
   }
 
+  // Capacitor needs to charge - therefore rerun around area with longer delay. -> REFACTOR THIS!!!!
+  maximum_reflection = 0;
+  for (uint32_t frequency = minimum_frequency - 300000U; frequency <= minimum_frequency + 300000U; frequency += frequency_step)
+  {
+    adf4351.setf(frequency);
+    delay(50); // Higher delay so the capacitor has time to charge
+
+    current_reflection = readReflection(64);
+
+    if (current_reflection > maximum_reflection)
+    {
+      minimum_frequency = frequency;
+      maximum_reflection = current_reflection;
+    }
+  }
+
   return minimum_frequency;
 }
-
-// Capacitor needs to charge - therefore rerun around area with longer delay.
 
 // Approximates the target frequency to about 3 MHZ with the tuning capacitor .... works so far
 int32_t approximateResonance(uint32_t target_frequency, uint32_t current_resonance_frequency)
