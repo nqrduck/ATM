@@ -41,7 +41,7 @@ void setup()
   tuner.DRIVER.coolstep_min_speed(0xFFFFF); // 20bit max - needs to be set for stallguard
   tuner.DRIVER.diag1_stall(1);
   tuner.DRIVER.diag1_active_high(1);
-  tuner.DRIVER.sg_stall_value(STALL_VALUE - 1);
+  tuner.DRIVER.sg_stall_value(STALL_VALUE);
   tuner.DRIVER.shaft_dir(0);
   tuner.DRIVER.stealthChop(1); // Enable extremely quiet stepping
 
@@ -423,6 +423,8 @@ int32_t findCurrentResonanceFrequency(uint32_t start_frequency, uint32_t stop_fr
   return minimum_frequency;
 }
 
+// Capacitor needs to charge - therefore rerun around area with longer delay.
+
 // Approximates the target frequency to about 3 MHZ with the tuning capacitor .... works so far
 int32_t approximateResonance(uint32_t target_frequency, uint32_t current_resonance_frequency)
 {
@@ -494,7 +496,10 @@ int32_t bruteforceResonance(uint32_t target_frequency, uint32_t current_resonanc
   else
     rotation = 1;
 
-  iteration_steps = rotation * (STEPS_PER_ROTATION / 20);
+  int iteration_start = rotation * (STEPS_PER_ROTATION / 20);
+
+  iteration_steps = iteration_start;
+  DEBUG_PRINT(iteration_start);
 
   //'bruteforce' the stepper position to match the target frequency
 
@@ -502,6 +507,13 @@ int32_t bruteforceResonance(uint32_t target_frequency, uint32_t current_resonanc
   {
     tuner.STEPPER.move(iteration_steps);
     tuner.STEPPER.runToPosition();
+
+    // Only rematch matcher for large step width
+    if (iteration_steps == iteration_start)
+    {
+      matcher.STEPPER.move(-iteration_steps * 3);
+      matcher.STEPPER.runToPosition();
+    }
 
     // @ Optimization possibility: Reduce frequency range when close to target_frequency
     current_resonance_frequency = findCurrentResonanceFrequency(current_resonance_frequency - 5000000U, current_resonance_frequency + 5000000U, FREQUENCY_STEP / 2);
@@ -546,7 +558,7 @@ int32_t bruteforceResonance(uint32_t target_frequency, uint32_t current_resonanc
 
 int optimizeMatching(uint32_t current_resonance_frequency)
 {
-  int ITERATIONS = 25;
+  int ITERATIONS = 50;
   int iteration_steps = 0;
 
   int maximum_reflection = 0;
@@ -561,7 +573,7 @@ int optimizeMatching(uint32_t current_resonance_frequency)
   DEBUG_PRINT(rotation);
 
   // This tries to find the minimum reflection while ignoring the change in resonance -> it always looks for minima within
-  iteration_steps = rotation * (STEPS_PER_ROTATION / 10);
+  iteration_steps = rotation * (STEPS_PER_ROTATION / 20);
 
   DEBUG_PRINT(iteration_steps);
 
@@ -582,7 +594,7 @@ int optimizeMatching(uint32_t current_resonance_frequency)
     adf4351.setf(current_resonance_frequency);
     delay(10);
 
-    current_reflection = readReflection(64);
+    current_reflection = readReflection(16);
     // current_reflection = sumReflectionAroundFrequency(current_resonance_frequency);
 
     if (current_reflection > maximum_reflection)
@@ -592,12 +604,6 @@ int optimizeMatching(uint32_t current_resonance_frequency)
       DEBUG_PRINT("Minimum");
       DEBUG_PRINT(minimum_matching_position);
     }
-
-    /*if (current_reflection > last_reflection) {
-      rotation *= -1;
-      //iteration_steps /= 2;
-      iteration_steps *= rotation;
-    }*/
 
     DEBUG_PRINT(matcher.STEPPER.currentPosition());
     DEBUG_PRINT(current_resonance_frequency);
