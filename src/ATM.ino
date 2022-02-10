@@ -25,9 +25,11 @@ TMC2130Stepper matching_driver = TMC2130Stepper(EN_PIN_M2, DIR_PIN_M2, STEP_PIN_
 AccelStepper tuning_stepper = AccelStepper(tuning_stepper.DRIVER, STEP_PIN_M1, DIR_PIN_M1);
 AccelStepper matching_stepper = AccelStepper(matching_stepper.DRIVER, STEP_PIN_M2, DIR_PIN_M2);
 
-Stepper tuner = {tuning_stepper, tuning_driver, DIAG1_PIN_M1, TUNING_STEPPER_HOME};
+Stepper tuner = {tuning_stepper, tuning_driver, DIAG1_PIN_M1, "Tuner"};
 
-Stepper matcher = {matching_stepper, matching_driver, DIAG1_PIN_M2, MATCHING_STEPPER_HOME};
+Stepper matcher = {matching_stepper, matching_driver, DIAG1_PIN_M2, "Matcher"};
+
+boolean homed = false;
 
 void setup()
 {
@@ -85,6 +87,12 @@ void setup()
   adf4351.setrf(25000000U);
   adf4351.pwrlevel = 2; // This equals -4dBm*/
   adf4351.setf(START_FREQUENCY);
+
+  pinMode(FILTER_SWITCH_A, OUTPUT);
+  pinMode(FILTER_SWITCH_B, OUTPUT);
+
+  digitalWrite(FILTER_SWITCH_A, LOW);
+  digitalWrite(FILTER_SWITCH_B, LOW);
 }
 
 // Implement Serial communication ...
@@ -163,6 +171,9 @@ void loop()
       Serial.println("Homing...");
       homeStepper(tuner);
       homeStepper(matcher);
+      homed = true;
+      changeFrequencyRange(HOME_RANGE);
+      
       Serial.println("Resonance frequency after homing:");
       uint32_t resonance_frequency = findCurrentResonanceFrequency(START_FREQUENCY, STOP_FREQUENCY, FREQUENCY_STEP);
       Serial.println(resonance_frequency);
@@ -302,8 +313,6 @@ void homeStepper(Stepper stepper)
   stepper.STEPPER.setAcceleration(12000);
 
   stepper.STEPPER.setCurrentPosition(0);
-  stepper.STEPPER.moveTo(stepper.HOME_POSITION);
-  stepper.STEPPER.runToPosition();
 }
 
 int stallStepper(Stepper stepper)
@@ -320,6 +329,21 @@ int stallStepper(Stepper stepper)
   stepper.STEPPER.stop();
 
   return stepper.STEPPER.currentPosition(); // returns value until limit is reached
+}
+
+// This function changes the filterbank settings for the selected target range
+// and drives the tuner and matcher stepper to the center of the selected frequency range
+void changeFrequencyRange(FrequencyRange target_range)
+{
+  digitalWrite(FILTER_SWITCH_A, target_range.FILTER.control_input_a);
+  digitalWrite(FILTER_SWITCH_B, target_range.FILTER.control_input_b);
+
+  tuner.STEPPER.moveTo(target_range.TUNING_CENTER_POSITION);
+  tuner.STEPPER.runToPosition();
+
+  matcher.STEPPER.moveTo(target_range.TUNING_CENTER_POSITION);
+  matcher.STEPPER.runToPosition();
+  
 }
 
 uint32_t automaticTM(uint32_t target_frequency)

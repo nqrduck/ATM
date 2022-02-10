@@ -8,5 +8,5 @@ struct Stepper{
    AccelStepper STEPPER;
    TMC2130Stepper DRIVER;
    int STALL_PIN;
-   int HOME_POSITION;
+   String TYPE;
 };
