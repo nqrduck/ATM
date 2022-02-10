@@ -169,11 +169,11 @@ void loop()
     else if (command == 'h')
     {
       Serial.println("Homing...");
-      homeStepper(tuner);
-      homeStepper(matcher);
+      tuner.STEPPER.setCurrentPosition(homeStepper(tuner));
+      matcher.STEPPER.setCurrentPosition(homeStepper(matcher));
       homed = true;
       changeFrequencyRange(HOME_RANGE);
-      
+
       Serial.println("Resonance frequency after homing:");
       uint32_t resonance_frequency = findCurrentResonanceFrequency(START_FREQUENCY, STOP_FREQUENCY, FREQUENCY_STEP);
       Serial.println(resonance_frequency);
@@ -295,7 +295,7 @@ void getCalibrationValues()
   Serial.println(matcher_position);
 }
 
-void homeStepper(Stepper stepper)
+long homeStepper(Stepper stepper)
 {
   stallStepper(stepper);
   stepper.STEPPER.setCurrentPosition(0);
@@ -313,6 +313,14 @@ void homeStepper(Stepper stepper)
   stepper.STEPPER.setAcceleration(12000);
 
   stepper.STEPPER.setCurrentPosition(0);
+
+  stepper.STEPPER.moveTo(1000);
+
+  stepper.STEPPER.runToPosition();
+
+  DEBUG_PRINT(stepper.STEPPER.currentPosition());
+
+  return stepper.STEPPER.currentPosition();
 }
 
 int stallStepper(Stepper stepper)
@@ -343,7 +351,6 @@ void changeFrequencyRange(FrequencyRange target_range)
 
   matcher.STEPPER.moveTo(target_range.TUNING_CENTER_POSITION);
   matcher.STEPPER.runToPosition();
-  
 }
 
 uint32_t automaticTM(uint32_t target_frequency)
@@ -631,8 +638,8 @@ int optimizeMatching(uint32_t current_resonance_frequency)
     adf4351.setf(current_resonance_frequency);
     delay(10);
 
-    // current_reflection = readReflection(16);
-    current_reflection = sumReflectionAroundFrequency(current_resonance_frequency);
+    current_reflection = readReflection(16);
+    // current_reflection = sumReflectionAroundFrequency(current_resonance_frequency);
 
     if (current_reflection > maximum_reflection)
     {
