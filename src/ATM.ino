@@ -349,7 +349,7 @@ void changeFrequencyRange(FrequencyRange target_range)
   tuner.STEPPER.moveTo(target_range.TUNING_CENTER_POSITION);
   tuner.STEPPER.runToPosition();
 
-  matcher.STEPPER.moveTo(target_range.TUNING_CENTER_POSITION);
+  matcher.STEPPER.moveTo(target_range.MATCHING_CENTER_POSITION);
   matcher.STEPPER.runToPosition();
 }
 
@@ -631,9 +631,13 @@ int optimizeMatching(uint32_t current_resonance_frequency)
     matcher.STEPPER.move(iteration_steps);
     matcher.STEPPER.runToPosition();
 
-    delay(250);
+    delay(50);
 
     current_resonance_frequency = findCurrentResonanceFrequency(current_resonance_frequency - 1000000U, current_resonance_frequency + 1000000U, FREQUENCY_STEP / 2);
+
+    // Skip this iteration if the resonance has been lost
+    if (current_resonance_frequency == 0)
+      continue;
 
     adf4351.setf(current_resonance_frequency);
     delay(10);

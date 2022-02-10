@@ -40,8 +40,8 @@ const FrequencyRange RANGE_70_125MHZ =
         125000000U,
         100000000U,
         FG_120MHZ,
-        34250U, // FIND VALUES
-        45000U, // FIND VALUES
+        34400U,
+        48500U,
 };
 
 const FrequencyRange RANGE_125_180MHZ =
