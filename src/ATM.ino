@@ -91,8 +91,10 @@ void setup()
   pinMode(FILTER_SWITCH_A, OUTPUT);
   pinMode(FILTER_SWITCH_B, OUTPUT);
 
-  digitalWrite(FILTER_SWITCH_A, LOW);
-  digitalWrite(FILTER_SWITCH_B, LOW);
+  // digitalWrite(FILTER_SWITCH_A, LOW);
+  // digitalWrite(FILTER_SWITCH_B, LOW);
+
+  changeFrequencyRange(HOME_RANGE);
 }
 
 // Implement Serial communication ...
