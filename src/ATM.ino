@@ -94,7 +94,7 @@ void setup()
   // digitalWrite(FILTER_SWITCH_A, LOW);
   // digitalWrite(FILTER_SWITCH_B, LOW);
 
-  changeFrequencyRange(HOME_RANGE);
+  // changeFrequencyRange(HOME_RANGE);
 }
 
 // Implement Serial communication ...
@@ -112,18 +112,7 @@ void loop()
     // CAREFULL -> if the coil has no proper matching in the frequency range this will not work! Only use this for testing -> otherwise use the automated 'decide' call.
     if (command == 'a')
     {
-      float target_frequency_MHz = input_line.substring(1).toFloat();
-      uint32_t target_frequency = validateInput(target_frequency_MHz);
-      if (target_frequency == 0)
-        return;
-
-      Serial.println("Approximating matching to target frequency in MHz:");
-      Serial.println(target_frequency_MHz);
-
-      uint32_t resonance_frequency = findCurrentResonanceFrequency(START_FREQUENCY, STOP_FREQUENCY, FREQUENCY_STEP);
-      resonance_frequency = approximateResonance(target_frequency, resonance_frequency);
-      Serial.println("Resonance after approximation is at:");
-      Serial.println(resonance_frequency);
+      DEBUG_PRINT("Not implemented");
 
       // bruteforce call
       // CAREFULL -> if the current resonance frequency is not within +-5MHz of the target frequency this will not work. Only use this for testing -> otherwise use the automated 'decide' call.
@@ -359,8 +348,8 @@ uint32_t automaticTM(uint32_t target_frequency)
 {
   uint32_t resonance_frequency = findCurrentResonanceFrequency(START_FREQUENCY, STOP_FREQUENCY, FREQUENCY_STEP);
 
-  // int32_t delta_frequency = target_frequency - resonance_frequency; // needs to be int -> negative frequencies possible
-  // if (abs(delta_frequency) > 5000000U) resonance_frequency = approximateResonance(target_frequency, resonance_frequency);
+  DEBUG_PRINT("Resonance Frequency before TM");
+  DEBUG_PRINT(resonance_frequency);
 
   resonance_frequency = bruteforceResonance(target_frequency, resonance_frequency);
 
@@ -428,6 +417,7 @@ int32_t findCurrentResonanceFrequency(uint32_t start_frequency, uint32_t stop_fr
   float reflection = 0;
 
   adf4351.setf(start_frequency); // A frequency value needs to be set once -> there seems to be a bug with the first SPI call
+  delay(50);
 
   for (uint32_t frequency = start_frequency; frequency <= stop_frequency; frequency += frequency_step)
   {
@@ -470,57 +460,6 @@ int32_t findCurrentResonanceFrequency(uint32_t start_frequency, uint32_t stop_fr
   }
 
   return minimum_frequency;
-}
-
-// Approximates the target frequency to about 3 MHZ with the tuning capacitor .... works so far
-int32_t approximateResonance(uint32_t target_frequency, uint32_t current_resonance_frequency)
-{
-
-  int32_t delta_frequency = target_frequency - current_resonance_frequency;
-  int rotation = 0; // rotation == 1 -> clockwise, rotation == -1 -> counterclockwise
-
-  if (delta_frequency < 0)
-    rotation = -1; // negative delta means currentresonance is to high, hence anticlockwise movement is necessary
-  else
-    rotation = 1;
-
-  int start_position = tuner.STEPPER.currentPosition();
-
-  tuner.STEPPER.move(STEPS_PER_ROTATION * rotation); // This needs to be changed
-  tuner.STEPPER.runToPosition();
-
-  // @ Optimization possibility: -> just scan plausible area, would reduce half the scan time
-  int32_t one_revolution_resonance = findCurrentResonanceFrequency(current_resonance_frequency - 30000000U, current_resonance_frequency + 30000000U, FREQUENCY_STEP);
-
-  DEBUG_PRINT(one_revolution_resonance);
-
-  int32_t delta_one_revolution_frequency = one_revolution_resonance - current_resonance_frequency;
-
-  // Plausibility Check - prevents the stepper from turning forever.
-  if ((one_revolution_resonance == -1) || (abs(delta_one_revolution_frequency) > 30000000U))
-  {
-    Serial.println("Tuning and matching not possible - homing needed.");
-    return -1;
-  }
-
-  int32_t steps_to_delta_frequency = ((float)delta_frequency / (float)delta_one_revolution_frequency) * STEPS_PER_ROTATION * rotation;
-
-  DEBUG_PRINT(delta_one_revolution_frequency);
-  DEBUG_PRINT(delta_frequency);
-
-  DEBUG_PRINT(tuner.STEPPER.currentPosition());
-  DEBUG_PRINT(steps_to_delta_frequency);
-
-  tuner.STEPPER.moveTo(start_position + steps_to_delta_frequency);
-  tuner.STEPPER.runToPosition();
-
-  DEBUG_PRINT(tuner.STEPPER.currentPosition());
-
-  current_resonance_frequency = findCurrentResonanceFrequency(target_frequency - 30000000U, target_frequency + 30000000U, FREQUENCY_STEP);
-
-  DEBUG_PRINT(current_resonance_frequency);
-
-  return (current_resonance_frequency);
 }
 
 // Tries out different capacitor position until iteration depth is reached OR current_resonancy frequency matches the target_frequency
