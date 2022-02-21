@@ -169,7 +169,7 @@ void loop()
       changeFrequencyRange(HOME_RANGE);
 
       Serial.println("Resonance frequency after homing:");
-      uint32_t resonance_frequency = findCurrentResonanceFrequency(START_FREQUENCY, STOP_FREQUENCY, FREQUENCY_STEP);
+      uint32_t resonance_frequency = findCurrentResonanceFrequency(START_FREQUENCY, STOP_FREQUENCY, FREQUENCY_STEP / 2);
       Serial.println(resonance_frequency);
 
       // frequency sweep call
@@ -178,7 +178,7 @@ void loop()
     else if (command == 'f')
     {
       Serial.println("Frequency sweep...");
-      uint32_t resonance_frequency = findCurrentResonanceFrequency(START_FREQUENCY, STOP_FREQUENCY, FREQUENCY_STEP);
+      uint32_t resonance_frequency = findCurrentResonanceFrequency(START_FREQUENCY, STOP_FREQUENCY, FREQUENCY_STEP / 2);
       Serial.println("Resonance is at:");
       Serial.println(resonance_frequency);
 
