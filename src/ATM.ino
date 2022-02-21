@@ -91,8 +91,8 @@ void setup()
   pinMode(FILTER_SWITCH_A, OUTPUT);
   pinMode(FILTER_SWITCH_B, OUTPUT);
 
-  // digitalWrite(FILTER_SWITCH_A, LOW);
-  // digitalWrite(FILTER_SWITCH_B, LOW);
+  digitalWrite(FILTER_SWITCH_A, LOW);
+  digitalWrite(FILTER_SWITCH_B, HIGH);
 
   // changeFrequencyRange(HOME_RANGE);
 }
@@ -152,6 +152,9 @@ void loop()
       Serial.println("Resonance after tuning and matching is at:");
       Serial.println(resonance_frequency);
 
+      Serial.println("Matched to RL in dB:");
+      Serial.println(calculateRL(resonance_frequency));
+
       // home call
       // Perform the homing routine by looking for the limit of the capacitors
       // it also places the steppers in a way so there is a resonance dip inside the frequency range
@@ -188,12 +191,11 @@ void loop()
       if (frequency == 0)
         return;
 
-      adf4351.setf(frequency);
-      delay(10);
-      float reflection_loss = readReflection(64);
+      float reflection_loss = calculateRL(frequency);
+
       Serial.println("For frequency:");
       Serial.println(frequency);
-      Serial.println("RMS of the reflection is:");
+      Serial.println("RL is:");
       Serial.println(reflection_loss);
 
       // optimize Matching
@@ -364,50 +366,20 @@ uint32_t automaticTM(uint32_t target_frequency)
 
 // calculates the Reflection Loss at a specified frequency
 // 24mV/dB slope
-// 0dBV defined as 1V Sin RMS
-// Would expect 1.74V as output for unmatched coil -> but it's 1.65V => ~10mV at Logamp
-
-// Measurments: with 40dB LNA @85MHz
-// Open: 1.6V RMS output
-// Coil matched to -30dB: 1.0V RmS Output
 float calculateRL(uint32_t frequency)
 {
-  float RMS_ADF = 13; // at -4dBm the ADF4351 generates sin with an RMS value of 131.5mV but due to to -10dB attenuation of the transcoupler and some additional reflections about 13mV are effectivly at the Logamp
-  float reflection_rms = getReflectionRMS(frequency);
+  adf4351.setf(frequency);
+  delay(100);
 
-  float reflection_loss = 20 * log10((reflection_rms) / RMS_ADF);
+  float reflection = readReflection(64);
+
+  float reflection_loss = reflection / 2.96; // Divide by the amplifier gain
+  reflection_loss = reflection_loss / 24;    // Divide by the logamp slope
 
   return reflection_loss;
 }
 
-float getReflectionRMS(uint32_t frequency)
-{
-  float LOGAMP_SLOPE = 24; // Slope in mV/dB
-
-  adf4351.setf(frequency);
-  delay(10);
-
-  int reflection_mv = readReflection(64); // Output of the logamp
-
-  int intercept_positioning = -108; // in dB
-
-  float reflection_dBV = (reflection_mv / LOGAMP_SLOPE) + intercept_positioning;
-
-  float reflection_rms = pow(10, reflection_dBV / 20) * 1000; // this step could be shortened but I still like to calculate it explicitly since there are multiple logarithmic operations going on here - > this value is in mV
-  return reflection_rms;
-}
-
 // Finds current Resonance Frequency of the coil. There should be a substential dip already present atm.
-// Add plausibility check to make sure there is one peak at at least -12dB
-// Following is for setup WITHOUT 20dB LNA:
-// -30dB aprox. 1.15V Oscilloscope -> normally 1.6V -> 1300 Points
-// -16dB aprox. 1.27V Oscilloscope - normally 1.6V
-// -18dB aprox 1.295V Oscilloscope -> use 1489 Points as decision line for sufficient Matching
-
-// Values for setup WITH 20dB LNA: -> i don't know what happened here.
-// open 1.2V
-//-16dB  827mV Oscilloscope
-//-30dB 770mV Oscilloscope
 
 int32_t findCurrentResonanceFrequency(uint32_t start_frequency, uint32_t stop_frequency, uint32_t frequency_step)
 {
@@ -448,7 +420,7 @@ int32_t findCurrentResonanceFrequency(uint32_t start_frequency, uint32_t stop_fr
   for (uint32_t frequency = minimum_frequency - 300000U; frequency <= minimum_frequency + 300000U; frequency += frequency_step)
   {
     adf4351.setf(frequency);
-    delay(50); // Higher delay so the capacitor has time to charge
+    delay(100); // Higher delay so the capacitor has time to charge
 
     current_reflection = readReflection(64);
 
@@ -511,7 +483,7 @@ int32_t bruteforceResonance(uint32_t target_frequency, uint32_t current_resonanc
       break;
 
     adf4351.setf(current_resonance_frequency);
-    delay(10);
+    delay(100);
     resonance_reflection = readReflection(16);
     DEBUG_PRINT(resonance_reflection);
 
@@ -578,10 +550,13 @@ int optimizeMatching(uint32_t current_resonance_frequency)
 
     // Skip this iteration if the resonance has been lost
     if (current_resonance_frequency == 0)
+    {
+      delay(1000); // Wait for one second since something has gone wrong
       continue;
+    }
 
     adf4351.setf(current_resonance_frequency);
-    delay(10);
+    delay(100);
 
     current_reflection = readReflection(16);
     // current_reflection = sumReflectionAroundFrequency(current_resonance_frequency);
@@ -590,7 +565,7 @@ int optimizeMatching(uint32_t current_resonance_frequency)
     {
       minimum_matching_position = matcher.STEPPER.currentPosition();
       maximum_reflection = current_reflection;
-      DEBUG_PRINT("Minimum");
+      DEBUG_PRINT("Maximum");
       DEBUG_PRINT(minimum_matching_position);
     }
 
@@ -625,7 +600,7 @@ int getMatchRotation(uint32_t current_resonance_frequency)
   // int clockwise_match = sumReflectionAroundFrequency(current_resonance_frequency);
   if (current_resonance_frequency != 0)
     adf4351.setf(current_resonance_frequency);
-  delay(10);
+  delay(100);
   int clockwise_match = readReflection(64);
 
   matcher.STEPPER.move(-2 * (STEPS_PER_ROTATION / 2));
@@ -634,7 +609,7 @@ int getMatchRotation(uint32_t current_resonance_frequency)
   current_resonance_frequency = findCurrentResonanceFrequency(current_resonance_frequency - 1000000U, current_resonance_frequency + 1000000U, FREQUENCY_STEP / 10);
   // int anticlockwise_match = sumReflectionAroundFrequency(current_resonance_frequency);
   adf4351.setf(current_resonance_frequency);
-  delay(10);
+  delay(100);
   int anticlockwise_match = readReflection(64);
 
   matcher.STEPPER.move(STEPS_PER_ROTATION / 2);
