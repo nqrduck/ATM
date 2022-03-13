@@ -1,3 +1,11 @@
+/*
+   This library uses the BigNumber library (included) from Nick Gammon
+   Modified by J. Pfitzer from David Fannin (https://github.com/dfannin/adf4351), KK6DF for usage with an ESP32 board
+   MIT License
+   
+   This is part of the Arduino Library for the ADF4351 PLL wideband frequency synthesizer
+*/
+
 #ifndef __ADF4351_H__
 #define __ADF4351_H__
 
