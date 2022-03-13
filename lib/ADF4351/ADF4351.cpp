@@ -1,3 +1,27 @@
+/*!
+   The ADF4351 chip is a wideband freqency synthesizer integrated circuit that can generate frequencies
+   from 35 MHz to 4.4 GHz. It incorporates a PLL (Fraction-N and Integer-N modes) and VCO, along with
+   prescalers, dividers and multipiers.  The users add a PLL loop filter and reference frequency to
+   create a frequency generator with a very wide range, that is tuneable in settable frequency steps.
+   The ADF4351 chip provides an I2C interface for setting the device registers that control the
+   frequency and output levels, along with several IO pins for gathering chip status and
+   enabling/disabling output and power modes.
+   The ADF4351 library provides an Arduino API for accessing the features of the ADF chip.
+   The basic PLL equations for the ADF4351 are:
+   \f$ RF_{out} = f_{PFD} \times (INT +(\frac{FRAC}{MOD})) \f$
+   where:
+   \f$ f_{PFD} = REF_{IN} \times \left[ \frac{(1 + D)}{( R \times (1 + T))} \right]  \f$
+   \f$ D = \textrm{RD2refdouble, ref doubler flag}\f$
+   \f$ R = \textrm{RCounter, ref divider}\f$
+   \f$ T = \textrm{RD1Rdiv2, ref divide by 2 flag}\f$
+
+   This library uses the BigNumber library (included) from Nick Gammon
+
+   Modified by J. Pfitzer from David Fannin (https://github.com/dfannin/adf4351), KK6DF for usage with an ESP32 board
+
+   MIT License
+*/
+
 #include "ADF4351.h"
 
 #define ADF_FREQ_MAX  4294967295UL    ///< Maximum Generated Frequency = value of MAX Unsigned Long
@@ -277,32 +301,6 @@ int ADF4351::setrf(uint32_t f)
 
 // write data into register
 void ADF4351::WriteRegister(uint32_t regData){
-	/*digitalWrite(_le, LOW);
-	_regData = regData;
-
-	for(int i=0; i<32; i++)
-	{
-		if(((_regData<<i)&0x80000000)==0x80000000)
-		{
-			digitalWrite(_data,1);
-			
-		}
-		else
-		{
-			digitalWrite(_data,0) ;
-			
-		}
-
-		digitalWrite(_sclk, HIGH);
-		delay(1);
-		digitalWrite(_sclk, LOW);
-	}
-	
-	// load data into register
-	digitalWrite(_le, HIGH);
-	delay(1);
-	digitalWrite(_le, LOW);*/
-
   byte  txbyte ;
   digitalWrite(_le, LOW) ;
 
