@@ -13,6 +13,8 @@ To overcome this issue, an automatic Tuning and Matching system was developed us
 ## System overview
 The ATM-system consists of multiple separate hardware components and multiple signal paths. One signal path is used to measure the reflection (characterized by the Return Loss) at a frequency with a fixed position for the tuning and matching capacitors. It is structured as following:
 
+<img src="docs/img/system_overview.png" alt="drawing" width="500"/>
+
 1.  A frequency synthesizer outputs an RF signal to a filterbank. 
 2. The filterbank filters out harmonic components of the frequency \break synthesizer's output.
 3. The filtered signal is guided to a directional coupler setup. The directional coupler is connected to the resonator circuit and decouples the forward signal and the signal reflected at the resonator circuit. 
@@ -28,6 +30,8 @@ Since the system also needs to be able to adjust the mechanically trimmable capa
 
 ## Hardware
 Schematics for the electrical circuit and mechanical housing can be found in the project directory. 
+
+<img src="docs/img/system_picture.png" alt="drawing" width="500"/>
 
 ## Install instructions
 1. Download the project as a zip file and import it as a platformio project. 
