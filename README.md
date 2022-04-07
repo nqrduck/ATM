@@ -18,9 +18,9 @@ The ATM-system consists of multiple separate hardware components and multiple si
 1.  A frequency synthesizer outputs an RF signal to a filterbank. 
 2. The filterbank filters out harmonic components of the frequency \break synthesizer's output.
 3. The filtered signal is guided to a directional coupler setup. The directional coupler is connected to the resonator circuit and decouples the forward signal and the signal reflected at the resonator circuit. 
-4.The forward and reflected signals are converted to a DC signal using a logarithmic amplifier. 
+4. The forward and reflected signals are converted to a DC signal using a logarithmic amplifier. 
 5. An instrumentation amplifier takes the DC signals of the forwarded and reflected signal as differential inputs and outputs an amplified signal.
-6.An ADC reads in the output of the instrumentation amplifier, which is a representation of the amplitude of the reflected wave. 
+6. An ADC reads in the output of the instrumentation amplifier, which is a representation of the amplitude of the reflected wave. 
 
 
 Since the system also needs to be able to adjust the mechanically trimmable capacitors, stepper motors have to be controlled.
