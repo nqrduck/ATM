@@ -3,6 +3,10 @@
 #define MOSI_PIN 13
 #define MISO_PIN 12
 
+// I^2C Pins - ADC/DAC Module
+#define I2C_SDA 21
+#define I2C_SCL 16
+
 //ADF Pins
 #define LE_PIN 27
 #define CE_PIN 25

@@ -4,6 +4,7 @@
 #include <math.h>
 
 #include "ADF4351.h"
+#include "AD5593R.h"
 #include "Pins.h"      // Pins are defined here
 #include "Positions.h" // Calibrated frequency positions are defined her
 #include "Stepper.h"   // Stepper specific values are defined here
@@ -14,7 +15,7 @@
 
 // Frequency Settings
 #define FREQUENCY_STEP 100000U    // 100kHz frequency steps for initial frequency sweep
-#define START_FREQUENCY 35000000U // 80MHz
+#define START_FREQUENCY 50000000U // 80MHz
 #define STOP_FREQUENCY 110000000  // 120MHz
 
 ADF4351 adf4351(SCLK_PIN, MOSI_PIN, LE_PIN, CE_PIN); // declares object PLL of type ADF4351
@@ -28,6 +29,12 @@ AccelStepper matching_stepper = AccelStepper(matching_stepper.DRIVER, STEP_PIN_M
 Stepper tuner = {tuning_stepper, tuning_driver, DIAG1_PIN_M1, "Tuner"};
 
 Stepper matcher = {matching_stepper, matching_driver, DIAG1_PIN_M2, "Matcher"};
+
+// ADC DAC Module
+AD5593R adac =  AD5593R(23, I2C_SDA, I2C_SCL);
+bool DACs[8] = {0,1,1,0,0,0,0,0};
+bool ADCs[8] = {1,0,0,0,0,0,0,0};
+
 
 boolean homed = false;
 
@@ -49,7 +56,7 @@ void setup()
 
   pinMode(DIAG1_PIN_M1, INPUT);
 
-  Serial.print("DRV_STATUS=0b");
+  DEBUG_PRINT("DRV_STATUS=0b");
   Serial.println(tuning_driver.DRV_STATUS(), BIN);
 
   matcher.DRIVER.begin();          // Initiate pins and registeries
@@ -95,6 +102,14 @@ void setup()
   digitalWrite(FILTER_SWITCH_B, HIGH);
 
   // changeFrequencyRange(HOME_RANGE);
+
+  // ADAC module
+  adac.enable_internal_Vref();
+  adac.set_DAC_max_2x_Vref();
+  adac.set_ADC_max_2x_Vref();
+  adac.configure_DACs(DACs);
+
+  adac.configure_ADCs(ADCs);
 }
 
 // Implement Serial communication ...
@@ -112,7 +127,7 @@ void loop()
     // CAREFULL -> if the coil has no proper matching in the frequency range this will not work! Only use this for testing -> otherwise use the automated 'decide' call.
     if (command == 'a')
     {
-      DEBUG_PRINT("Not implemented");
+      Serial.println("Not implemented");
 
       // bruteforce call
       // CAREFULL -> if the current resonance frequency is not within +-5MHz of the target frequency this will not work. Only use this for testing -> otherwise use the automated 'decide' call.
@@ -265,7 +280,8 @@ int readReflection(int averages)
 {
   int reflection = 0;
   for (int i = 0; i < averages; i++)
-    reflection += analogReadMilliVolts(REFLECTION_PIN);
+    // We multiply by 1000 to get the result in millivolts
+    reflection += (adac.read_ADC(0) * 1000);
   return reflection / averages;
 }
 
@@ -373,13 +389,14 @@ float calculateRL(uint32_t frequency)
 
   float reflection = readReflection(64);
 
-  float reflection_loss = reflection / 2.96; // Divide by the amplifier gain
+  float reflection_loss = reflection / 6; // Divide by the amplifier gain
   reflection_loss = reflection_loss / 24;    // Divide by the logamp slope
 
   return reflection_loss;
 }
 
 // Finds current Resonance Frequency of the coil. There should be a substential dip already present atm.
+// It also returns the data of the frequency scan which can then be sent to the PC for plotting.
 
 int32_t findCurrentResonanceFrequency(uint32_t start_frequency, uint32_t stop_frequency, uint32_t frequency_step)
 {
@@ -394,10 +411,17 @@ int32_t findCurrentResonanceFrequency(uint32_t start_frequency, uint32_t stop_fr
   for (uint32_t frequency = start_frequency; frequency <= stop_frequency; frequency += frequency_step)
   {
     adf4351.setf(frequency);
+
     delay(5); // This delay is essential! There is a glitch with ADC2 that leads to wrong readings if GPIO27 is set to high for multiple microseconds.
 
     current_reflection = readReflection(4);
 
+    // Send out the frequency identifier f with the frequency value
+    Serial.print("f");
+    Serial.print(frequency);
+    Serial.print("r");
+    Serial.println(current_reflection);
+    
     if (current_reflection > maximum_reflection)
     {
       minimum_frequency = frequency;
@@ -410,8 +434,8 @@ int32_t findCurrentResonanceFrequency(uint32_t start_frequency, uint32_t stop_fr
   reflection = readReflection(16);
   if (reflection < 130)
   {
-    Serial.println("Resonance could not be found.");
-    Serial.println(reflection);
+    DEBUG_PRINT("Resonance could not be found.");
+    DEBUG_PRINT(reflection);
     return 0;
   }
 
