@@ -31,10 +31,9 @@ Stepper tuner = {tuning_stepper, tuning_driver, DIAG1_PIN_M1, "Tuner"};
 Stepper matcher = {matching_stepper, matching_driver, DIAG1_PIN_M2, "Matcher"};
 
 // ADC DAC Module
-AD5593R adac =  AD5593R(23, I2C_SDA, I2C_SCL);
-bool DACs[8] = {0,1,1,0,0,0,0,0};
-bool ADCs[8] = {1,0,0,0,0,0,0,0};
-
+AD5593R adac = AD5593R(23, I2C_SDA, I2C_SCL);
+bool DACs[8] = {0, 0, 1, 1, 0, 0, 0, 0};
+bool ADCs[8] = {1, 1, 0, 0, 0, 0, 0, 0};
 
 boolean homed = false;
 
@@ -92,7 +91,7 @@ void setup()
   adf4351.begin();
 
   adf4351.setrf(25000000U);
-  adf4351.pwrlevel = 2; // This equals -4dBm*/
+  adf4351.pwrlevel = 0; // This equals -4dBm*/
   adf4351.setf(START_FREQUENCY);
 
   pinMode(FILTER_SWITCH_A, OUTPUT);
@@ -192,9 +191,8 @@ void loop()
     }
     else if (command == 'f')
     {
-      Serial.println("Frequency sweep...");
       uint32_t resonance_frequency = findCurrentResonanceFrequency(START_FREQUENCY, STOP_FREQUENCY, FREQUENCY_STEP / 2);
-      Serial.println("Resonance is at:");
+      Serial.print("r");
       Serial.println(resonance_frequency);
 
       // calculates Reflection loss for a given frequency
@@ -265,7 +263,7 @@ uint32_t validateInput(float frequency_MHz)
     Serial.println("Invalid input: frequency too low");
     return 0;
   }
-  else if (frequency_Hz > STOP_FREQUENCY)
+  else if (frequency_Hz > 300000000U)
   {
     Serial.println("Invalid input: frequency too high");
     return 0;
@@ -283,6 +281,14 @@ int readReflection(int averages)
     // We multiply by 1000 to get the result in millivolts
     reflection += (adac.read_ADC(0) * 1000);
   return reflection / averages;
+}
+
+int readPhase(int averages)
+{
+  int phase = 0;
+  for (int i = 0; i < averages; i++)
+    phase += (adac.read_ADC(1) * 1000);
+  return phase / averages;
 }
 
 void getCalibrationValues()
@@ -384,13 +390,12 @@ uint32_t automaticTM(uint32_t target_frequency)
 // 24mV/dB slope
 float calculateRL(uint32_t frequency)
 {
-  adf4351.setf(frequency);
-  delay(100);
+  setFrequency(frequency);
 
   float reflection = readReflection(64);
 
   float reflection_loss = reflection / 6; // Divide by the amplifier gain
-  reflection_loss = reflection_loss / 24;    // Divide by the logamp slope
+  reflection_loss = reflection_loss / 24; // Divide by the logamp slope
 
   return reflection_loss;
 }
@@ -402,6 +407,7 @@ int32_t findCurrentResonanceFrequency(uint32_t start_frequency, uint32_t stop_fr
 {
   int maximum_reflection = 0;
   int current_reflection = 0;
+  int current_phase = 0;
   uint32_t minimum_frequency = 0;
   float reflection = 0;
 
@@ -410,18 +416,17 @@ int32_t findCurrentResonanceFrequency(uint32_t start_frequency, uint32_t stop_fr
 
   for (uint32_t frequency = start_frequency; frequency <= stop_frequency; frequency += frequency_step)
   {
-    adf4351.setf(frequency);
+    //adf4351.setf(frequency);
+    setFrequency(frequency);
 
-    delay(5); // This delay is essential! There is a glitch with ADC2 that leads to wrong readings if GPIO27 is set to high for multiple microseconds.
+    // delay(5); // This delay is essential! There is a glitch with ADC2 that leads to wrong readings if GPIO27 is set to high for multiple microseconds.
 
     current_reflection = readReflection(4);
+    current_phase = readPhase(4);
 
     // Send out the frequency identifier f with the frequency value
-    Serial.print("f");
-    Serial.print(frequency);
-    Serial.print("r");
-    Serial.println(current_reflection);
-    
+    Serial.println(String("f") + frequency + "r" + current_reflection + "p" + current_phase);
+
     if (current_reflection > maximum_reflection)
     {
       minimum_frequency = frequency;
@@ -456,6 +461,39 @@ int32_t findCurrentResonanceFrequency(uint32_t start_frequency, uint32_t stop_fr
   }
 
   return minimum_frequency;
+}
+
+void setFrequency(uint32_t frequency)
+{
+  // First we check what filter has to be used from the FILTERS array
+  // Then we set the filterbank accordingly
+  for (int i = 0; i < sizeof(FILTERS) / sizeof(FILTERS[0]); i++)
+  {
+    // For the first filter we just check if the frequency is below the fg
+    if ((i == 0) && (frequency < FILTERS[i].fg))
+    {
+      digitalWrite(FILTER_SWITCH_A, FILTERS[i].control_input_a);
+      digitalWrite(FILTER_SWITCH_B, FILTERS[i].control_input_b);
+      break;
+    }
+    // For the last filter we just check if the frequency is above the fg
+    else if ((i == sizeof(FILTERS) / sizeof(FILTERS[0]) - 1) && (frequency > FILTERS[i].fg))
+    {
+      digitalWrite(FILTER_SWITCH_A, FILTERS[i].control_input_a);
+      digitalWrite(FILTER_SWITCH_B, FILTERS[i].control_input_b);
+      break;
+    }
+    // For the filters in between we check if the frequency is between the fg and the fg of the previous filter
+    else if ((frequency < FILTERS[i].fg) &&  (frequency > FILTERS[i - 1].fg))
+    {
+      digitalWrite(FILTER_SWITCH_A, FILTERS[i].control_input_a);
+      digitalWrite(FILTER_SWITCH_B, FILTERS[i].control_input_b);
+      break;
+    }
+  }
+  // Finally we set the frequency
+  adf4351.setf(frequency);
+  
 }
 
 // Tries out different capacitor position until iteration depth is reached OR current_resonancy frequency matches the target_frequency

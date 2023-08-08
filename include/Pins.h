@@ -31,5 +31,5 @@
 #define REFLECTION_PIN 15
 
 // Filter Bank
-#define FILTER_SWITCH_A 22
-#define FILTER_SWITCH_B 23
+#define FILTER_SWITCH_A 23
+#define FILTER_SWITCH_B 22
