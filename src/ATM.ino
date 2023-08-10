@@ -55,9 +55,6 @@ void setup()
 
   pinMode(DIAG1_PIN_M1, INPUT);
 
-  DEBUG_PRINT("DRV_STATUS=0b");
-  Serial.println(tuning_driver.DRV_STATUS(), BIN);
-
   matcher.DRIVER.begin();          // Initiate pins and registeries
   matcher.DRIVER.rms_current(200); // Set stepper current to 200mA. The command is the same as command TMC2130.setCurrent(600, 0.11, 0.5);
   matcher.DRIVER.microsteps(16);
@@ -109,6 +106,10 @@ void setup()
   adac.configure_DACs(DACs);
 
   adac.configure_ADCs(ADCs);
+
+  // RF Switch
+  pinMode(RF_SWITCH_PIN, OUTPUT);
+  digitalWrite(RF_SWITCH_PIN, HIGH);
 }
 
 // Implement Serial communication ...
@@ -126,7 +127,7 @@ void loop()
     // CAREFULL -> if the coil has no proper matching in the frequency range this will not work! Only use this for testing -> otherwise use the automated 'decide' call.
     if (command == 'a')
     {
-      Serial.println("Not implemented");
+      printInfo("Not implemented");
 
       // bruteforce call
       // CAREFULL -> if the current resonance frequency is not within +-5MHz of the target frequency this will not work. Only use this for testing -> otherwise use the automated 'decide' call.
@@ -138,14 +139,14 @@ void loop()
       if (target_frequency == 0)
         return;
 
-      Serial.println("Bruteforce matching to target frequency in MHz:");
-      Serial.println(target_frequency_MHz);
+      printInfo("Bruteforce matching to target frequency in MHz:");
+      printInfo(target_frequency_MHz);
 
       uint32_t resonance_frequency = findCurrentResonanceFrequency(START_FREQUENCY, STOP_FREQUENCY, FREQUENCY_STEP);
 
       resonance_frequency = bruteforceResonance(target_frequency, resonance_frequency);
-      Serial.println("Resonance after bruteforce is at:");
-      Serial.println(resonance_frequency);
+      printInfo("Resonance after bruteforce is at:");
+      printInfo(String(resonance_frequency));
 
       // decide call
       // this function decides what kind of t&m mode should be used based on the relationship between target frequency and current resonance
@@ -158,16 +159,16 @@ void loop()
       if (target_frequency == 0)
         return;
 
-      Serial.println("Tuning and Matching to target frequency in MHz (automatic mode):");
-      Serial.println(target_frequency_MHz);
+      printInfo("Tuning and Matching to target frequency in MHz (automatic mode):");
+      printInfo(target_frequency_MHz);
 
       uint32_t resonance_frequency = automaticTM(target_frequency);
 
-      Serial.println("Resonance after tuning and matching is at:");
-      Serial.println(resonance_frequency);
+      printInfo("Resonance after tuning and matching is at:");
+      printInfo(resonance_frequency);
 
-      Serial.println("Matched to RL in dB:");
-      Serial.println(calculateRL(resonance_frequency));
+      printInfo("Matched to RL in dB:");
+      printInfo(calculateRL(resonance_frequency));
 
       // home call
       // Perform the homing routine by looking for the limit of the capacitors
@@ -176,24 +177,27 @@ void loop()
     }
     else if (command == 'h')
     {
-      Serial.println("Homing...");
+      printInfo("Homing...");
       tuner.STEPPER.setCurrentPosition(homeStepper(tuner));
       matcher.STEPPER.setCurrentPosition(homeStepper(matcher));
       homed = true;
       changeFrequencyRange(HOME_RANGE);
 
-      Serial.println("Resonance frequency after homing:");
+      printInfo("Resonance frequency after homing:");
       uint32_t resonance_frequency = findCurrentResonanceFrequency(START_FREQUENCY, STOP_FREQUENCY, FREQUENCY_STEP / 2);
-      Serial.println(resonance_frequency);
+      printInfo(resonance_frequency);
 
       // frequency sweep call
       // scans the frequency range for the current resonance frequency
     }
     else if (command == 'f')
     {
+      printInfo("Started frequency sweep");
       uint32_t resonance_frequency = findCurrentResonanceFrequency(START_FREQUENCY, STOP_FREQUENCY, FREQUENCY_STEP / 2);
+      
+      // This tells the PC that the frequency sweep is finished
       Serial.print("r");
-      Serial.println(resonance_frequency);
+      printInfo(resonance_frequency);
 
       // calculates Reflection loss for a given frequency
     }
@@ -206,19 +210,19 @@ void loop()
 
       float reflection_loss = calculateRL(frequency);
 
-      Serial.println("For frequency:");
-      Serial.println(frequency);
-      Serial.println("RL is:");
-      Serial.println(reflection_loss);
+      printInfo("For frequency:");
+      printInfo(frequency);
+      printInfo("RL is:");
+      printInfo(reflection_loss);
 
       // optimize Matching
     }
     else if (command == 'm')
     {
-      Serial.println("Optimize Matching around frequency:");
+      printInfo("Optimize Matching around frequency:");
       uint32_t resonance_frequency = findCurrentResonanceFrequency(START_FREQUENCY, STOP_FREQUENCY, FREQUENCY_STEP);
 
-      Serial.println(resonance_frequency);
+      printInfo(resonance_frequency);
 
       optimizeMatching(resonance_frequency);
 
@@ -233,39 +237,45 @@ void loop()
         return;
 
       int sum = sumReflectionAroundFrequency(frequency);
-      Serial.println("For frequency:");
-      Serial.println(frequency);
-      Serial.println("Sum of the reflection is:");
-      Serial.println(sum);
+      printInfo("For frequency:");
+      printInfo(frequency);
+      printInfo("Sum of the reflection is:");
+      printInfo(sum);
 
       // Calibration Call
     }
     else if (command == 'c')
     {
-      Serial.println("Calibrating ...");
+      printInfo("Calibrating ...");
       getCalibrationValues();
     }
     else
     {
-      Serial.println("Invalid Input");
+      printInfo("Invalid Input");
     }
   }
 }
 
-// This helper function checks if the input frequency is plausible, if so it returns the value in Hz
-// otherwise it returns 0
+/**
+ * @brief This function checks if the input is valid. It checks if the frequency is within the allowed range.
+ * 
+ * @param frequency_MHz The frequency that should be checked in MHz.
+ * @return uint32_t The frequency in Hz if the input is valid, 0 otherwise.
+ * 
+ * @example validateInput(100); // returns 100000000U
+*/
 uint32_t validateInput(float frequency_MHz)
 {
   uint32_t frequency_Hz = frequency_MHz * 1000000U;
 
   if (frequency_Hz < START_FREQUENCY)
   {
-    Serial.println("Invalid input: frequency too low");
+    printError("Invalid input: frequency too low");
     return 0;
   }
   else if (frequency_Hz > 300000000U)
   {
-    Serial.println("Invalid input: frequency too high");
+    printError("Invalid input: frequency too high");
     return 0;
   }
   else
@@ -274,6 +284,14 @@ uint32_t validateInput(float frequency_MHz)
   }
 }
 
+/**
+ * @brief This function reads the reflection at the current frequency. It does not set the frequency.
+ * 
+ * @param averages The number of readings that should be averaged
+ * @return int The average reflection in millivolts
+ * 
+ * @example readReflection(64); // reads the reflection at the current frequency and averages over 64 readings
+*/
 int readReflection(int averages)
 {
   int reflection = 0;
@@ -283,6 +301,14 @@ int readReflection(int averages)
   return reflection / averages;
 }
 
+/**
+ * @brief This function reads the phase at the current frequency. It does not set the frequency.
+ * 
+ * @param averages The number of readings that should be averaged
+ * @return int The average phase in millivolts
+ * 
+ * @example readPhase(64); // reads the phase at the current frequency and averages over 64 readings
+*/
 int readPhase(int averages)
 {
   int phase = 0;
@@ -302,12 +328,12 @@ void getCalibrationValues()
 
   int matcher_position = stallStepper(matcher);
 
-  Serial.println("For Resonance frequency:");
-  Serial.println(resonance_frequency);
-  Serial.println("Tuner Calibration is:");
-  Serial.println(tuner_position);
-  Serial.println("Matcher Position is:");
-  Serial.println(matcher_position);
+  printInfo("For Resonance frequency:");
+  printInfo(resonance_frequency);
+  printInfo("Tuner Calibration is:");
+  printInfo(tuner_position);
+  printInfo("Matcher Position is:");
+  printInfo(matcher_position);
 }
 
 long homeStepper(Stepper stepper)
@@ -462,7 +488,14 @@ int32_t findCurrentResonanceFrequency(uint32_t start_frequency, uint32_t stop_fr
 
   return minimum_frequency;
 }
-
+/**
+ * @brief This function sets the frequency of the frequency synthesizer and switches the filterbank accordingly.
+ * 
+ * @param frequency The frequency that should be set
+ * @return void
+ * 
+ * @example setFrequency(100000000U); // sets the frequency to 100MHz
+*/
 void setFrequency(uint32_t frequency)
 {
   // First we check what filter has to be used from the FILTERS array
@@ -686,6 +719,15 @@ int getMatchRotation(uint32_t current_resonance_frequency)
     return -1;
 }
 
+
+/**
+ * @brief This function sums up the reflection around a given frequency.
+ * 
+ * @param center_frequency The frequency around which the reflection should be summed up
+ * @return int The sum of the reflection around the given frequency
+ * 
+ * @example sumReflectionAroundFrequency(100000000U);
+*/
 int sumReflectionAroundFrequency(uint32_t center_frequency)
 {
   int sum_reflection = 0;
@@ -699,4 +741,40 @@ int sumReflectionAroundFrequency(uint32_t center_frequency)
   }
 
   return sum_reflection;
+}
+
+/**
+ * @brief This method should be called when one wants to print information to the serial port.
+ * 
+ * @param text The text that should be printed to the serial monitor. It should be a string
+ * @return void
+ * 
+ * @example printInfo("This is a test"); // prints "iThis is a test"
+ */
+void printInfo(String text) {
+  Serial.println("i" + text);
+}
+
+/**
+ * @brief This method should be called when one wants to print information to the serial port.
+ * 
+ * @param number The number that should be printed to the serial monitor. It should be a number
+ * @return void
+ * 
+ * @example printInfo(123U); // prints "i123"
+ */
+void printInfo(uint32_t number) {
+  Serial.println("i" + String(number)); // convert the number to a string before concatenating
+}
+
+/**
+ * @brief This method should be called when one wants to an error to the serial port.
+ * 
+ * @param text The text that should be printed to the serial monitor. It should be a string
+ * @return void
+ * 
+ * @example printError("Duck not found"); // prints "eDuck not found"
+ */
+void printError(String text) {
+  Serial.println("e" + text);
 }
