@@ -15,8 +15,8 @@
 
 // Frequency Settings
 #define FREQUENCY_STEP 100000U    // 100kHz frequency steps for initial frequency sweep
-#define START_FREQUENCY 50000000U // 80MHz
-#define STOP_FREQUENCY 110000000  // 120MHz
+#define START_FREQUENCY 50000000U // 50MHz
+#define STOP_FREQUENCY 110000000  // 110MHz
 
 ADF4351 adf4351(SCLK_PIN, MOSI_PIN, LE_PIN, CE_PIN); // declares object PLL of type ADF4351
 
@@ -66,7 +66,6 @@ void setup()
   matcher.DRIVER.stealthChop(1); // Enable extremely quiet stepping
 
   digitalWrite(EN_PIN_M1, LOW);
-
   digitalWrite(EN_PIN_M2, LOW);
 
   tuner.STEPPER.setMaxSpeed(12000);
@@ -88,7 +87,7 @@ void setup()
   adf4351.begin();
 
   adf4351.setrf(25000000U);
-  adf4351.pwrlevel = 0; // This equals -4dBm*/
+  adf4351.pwrlevel = 2; // This equals -4dBm*/ For the electrical probe coils one should use at least -20dbm so an attenuator is necessary
   adf4351.setf(START_FREQUENCY);
 
   pinMode(FILTER_SWITCH_A, OUTPUT);
@@ -96,8 +95,6 @@ void setup()
 
   digitalWrite(FILTER_SWITCH_A, LOW);
   digitalWrite(FILTER_SWITCH_B, HIGH);
-
-  // changeFrequencyRange(HOME_RANGE);
 
   // ADAC module
   adac.enable_internal_Vref();
@@ -181,7 +178,6 @@ void loop()
       tuner.STEPPER.setCurrentPosition(homeStepper(tuner));
       matcher.STEPPER.setCurrentPosition(homeStepper(matcher));
       homed = true;
-      changeFrequencyRange(HOME_RANGE);
 
       printInfo("Resonance frequency after homing:");
       uint32_t resonance_frequency = findCurrentResonanceFrequency(START_FREQUENCY, STOP_FREQUENCY, FREQUENCY_STEP / 2);
@@ -193,7 +189,19 @@ void loop()
     else if (command == 'f')
     {
       printInfo("Started frequency sweep");
-      uint32_t resonance_frequency = findCurrentResonanceFrequency(START_FREQUENCY, STOP_FREQUENCY, FREQUENCY_STEP / 2);
+      // Get the start frequency which is the value until the next f character
+      char delimiter = 'f';
+        // Indices for each variable
+      int startFreqIndex = input_line.indexOf(delimiter) + 1;
+      int stopFreqIndex = input_line.indexOf(delimiter, startFreqIndex) + 1;
+      int freqStepIndex = input_line.indexOf(delimiter, stopFreqIndex) + 1;
+
+      // Extract each variable from the string
+      uint32_t startFreq = input_line.substring(startFreqIndex, stopFreqIndex - 1).toInt();  // Subtract 1 to not include the delimiter
+      uint32_t stopFreq = input_line.substring(stopFreqIndex, freqStepIndex - 1).toInt();
+      uint32_t freqStep = input_line.substring(freqStepIndex).toInt();  // If no second parameter is provided, substring() goes to the end of the string
+
+      uint32_t resonance_frequency = findCurrentResonanceFrequency(startFreq, stopFreq, freqStep);
       
       // This tells the PC that the frequency sweep is finished
       Serial.print("r");
@@ -316,7 +324,14 @@ int readPhase(int averages)
     phase += (adac.read_ADC(1) * 1000);
   return phase / averages;
 }
-
+/**
+ * @brief This function should be called after manually tuning and matching the probe coil. It will then print the stepper positions for the current resonance frequency.
+ * This can be used to calibrate the stepper positions for the different frequency ranges.
+ * 
+ * @return void
+ * 
+ * @example getCalibrationValues(); // prints the stepper positions for the current resonance frequency
+*/
 void getCalibrationValues()
 {
   uint32_t resonance_frequency = findCurrentResonanceFrequency(START_FREQUENCY, STOP_FREQUENCY, FREQUENCY_STEP);
@@ -336,6 +351,14 @@ void getCalibrationValues()
   printInfo(matcher_position);
 }
 
+/**
+ * @brief This function performs a homing of the steppers. It returns the current position of the stepper.
+ * 
+ * @param stepper The stepper that should be homed
+ * @return long The current position of the stepper
+ * 
+ * @example homeStepper(tuner); // homes the tuner stepper and returns the current position
+*/
 long homeStepper(Stepper stepper)
 {
   stallStepper(stepper);
@@ -364,6 +387,14 @@ long homeStepper(Stepper stepper)
   return stepper.STEPPER.currentPosition();
 }
 
+/**
+ * @brief This function controls the stepper so that they hit the limit and stall. It then returns the current position of the stepper.
+ *
+ * @param stepper The stepper that should be stalled
+ * @return int The current position of the stepper
+ * 
+ * @example stallStepper(tuner); // stalls the tuner stepper and returns the current position
+*/
 int stallStepper(Stepper stepper)
 {
   stepper.STEPPER.moveTo(-9999999);
@@ -380,20 +411,9 @@ int stallStepper(Stepper stepper)
   return stepper.STEPPER.currentPosition(); // returns value until limit is reached
 }
 
-// This function changes the filterbank settings for the selected target range
-// and drives the tuner and matcher stepper to the center of the selected frequency range
-void changeFrequencyRange(FrequencyRange target_range)
-{
-  digitalWrite(FILTER_SWITCH_A, target_range.FILTER.control_input_a);
-  digitalWrite(FILTER_SWITCH_B, target_range.FILTER.control_input_b);
-
-  tuner.STEPPER.moveTo(target_range.TUNING_CENTER_POSITION);
-  tuner.STEPPER.runToPosition();
-
-  matcher.STEPPER.moveTo(target_range.MATCHING_CENTER_POSITION);
-  matcher.STEPPER.runToPosition();
-}
-
+/**
+ * 
+*/
 uint32_t automaticTM(uint32_t target_frequency)
 {
   uint32_t resonance_frequency = findCurrentResonanceFrequency(START_FREQUENCY, STOP_FREQUENCY, FREQUENCY_STEP);
@@ -426,9 +446,17 @@ float calculateRL(uint32_t frequency)
   return reflection_loss;
 }
 
-// Finds current Resonance Frequency of the coil. There should be a substential dip already present atm.
-// It also returns the data of the frequency scan which can then be sent to the PC for plotting.
-
+/**
+ * @brief This function finds the current resonance frequency of the coil. There should be a substential dip already present atm.
+ * It also returns the data of the frequency scan which can then be sent to the PC for plotting.
+ * 
+ * @param start_frequency The frequency at which the search should start
+ * @param stop_frequency The frequency at which the search should stop
+ * @param frequency_step The frequency step size
+ * @return int32_t The current resonance frequency
+ * 
+ * @example findCurrentResonanceFrequency(START_FREQUENCY, STOP_FREQUENCY, FREQUENCY_STEP); // finds the current resonance frequency
+*/
 int32_t findCurrentResonanceFrequency(uint32_t start_frequency, uint32_t stop_frequency, uint32_t frequency_step)
 {
   int maximum_reflection = 0;
@@ -529,7 +557,15 @@ void setFrequency(uint32_t frequency)
   
 }
 
-// Tries out different capacitor position until iteration depth is reached OR current_resonancy frequency matches the target_frequency
+/**
+ * @brief This function tries out different capacitor positions until iteration depth is reached OR current_resonancy frequency matches the target_frequency.
+ * 
+ * @param target_frequency The frequency that should be matched
+ * @param current_resonance_frequency The current resonance frequency
+ * @return int32_t The current resonance frequency
+ * 
+ * @example bruteforceResonance(100000000U, 90000000U); // tries to match 100MHz with a current resonance frequency of 90MHz
+*/
 int32_t bruteforceResonance(uint32_t target_frequency, uint32_t current_resonance_frequency)
 {
   // Change Tuning Stepper -> Clockwise => Freq goes up
