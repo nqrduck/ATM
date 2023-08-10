@@ -16,10 +16,13 @@ struct FrequencyRange
   uint32_t MATCHING_CENTER_POSITION;
 };
 
-const Filter FG_71MHZ = {71000000U, HIGH, HIGH};
+const Filter FG_71MHZ = {71000000U, LOW, LOW};
 const Filter FG_120MHZ = {120000000U, LOW, HIGH};
-const Filter FG_180MHZ = {180000000U, LOW, LOW};
+const Filter FG_180MHZ = {180000000U, HIGH, LOW};
 const Filter FG_260MHZ = {260000000U, HIGH, LOW};
+
+// All fitlers
+const Filter FILTERS[] = {FG_71MHZ, FG_120MHZ, FG_180MHZ, FG_260MHZ};
 
 // Settings for 100MHz -18dB
 //#define TUNING_STEPPER_HOME 34250U
