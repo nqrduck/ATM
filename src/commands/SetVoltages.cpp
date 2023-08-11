@@ -14,7 +14,7 @@ void SetVoltages::execute(String input_line){
 }
 
 void SetVoltages::printResult(){
-    Serial.println("Voltages set");
+    printInfo("Voltages set successfully");
 }
 
 void SetVoltages::printHelp(){
