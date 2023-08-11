@@ -8,6 +8,10 @@
 */
 class FrequencySweep : public Command {
 public:
+    /**
+     * @brief This function performs a frequency sweep
+     * @param input_line The input line from the serial monitor. The syntax is f<start frequency>f<stop frequency>f<frequency step>.
+    */
     void execute(String input_lne) override;
     void printResult() override;
     void printHelp() override;
