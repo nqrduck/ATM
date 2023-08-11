@@ -4,6 +4,7 @@
 #include "commands/FrequencySweep.h"
 #include "commands/TuneMatch.h"
 #include "commands/Homing.h"
+#include "commands/SetVoltages.h"
 
 #define DEBUG
 
@@ -15,11 +16,13 @@ CommandManager commandManager;
 FrequencySweep frequencySweep;
 TuneMatch tuneMatch;
 Homing homing;
+SetVoltages setVoltages;
 
 // Frequency Settings
 #define FREQUENCY_STEP 100000U    // 100kHz frequency steps for initial frequency sweep
 #define START_FREQUENCY 50000000U // 50MHz
 #define STOP_FREQUENCY 110000000  // 110MHz
+
 
 ADF4351 adf4351(SCLK_PIN, MOSI_PIN, LE_PIN, CE_PIN); // declares object PLL of type ADF4351
 
@@ -34,6 +37,7 @@ Stepper tuner = {tuning_stepper, tuning_driver, DIAG1_PIN_M1, "Tuner"};
 Stepper matcher = {matching_stepper, matching_driver, DIAG1_PIN_M2, "Matcher"};
 
 // ADC DAC Module
+
 AD5593R adac = AD5593R(23, I2C_SDA, I2C_SCL);
 bool DACs[8] = {0, 0, 1, 1, 0, 0, 0, 0};
 bool ADCs[8] = {1, 1, 0, 0, 0, 0, 0, 0};
@@ -48,6 +52,7 @@ void setup()
   commandManager.registerCommand('f', &frequencySweep);
   commandManager.registerCommand('d', &tuneMatch);
   commandManager.registerCommand('h', &homing);
+  commandManager.registerCommand('v', &setVoltages);
 
   pinMode(MISO_PIN, INPUT_PULLUP); // Seems to be necessary for SPI to work
 
@@ -114,6 +119,8 @@ void setup()
   adac.set_DAC_max_2x_Vref();
   adac.set_ADC_max_2x_Vref();
   adac.configure_DACs(DACs);
+  adac.write_DAC(VM, 0.0);
+  adac.write_DAC(VT, 0.0);
 
   adac.configure_ADCs(ADCs);
 
