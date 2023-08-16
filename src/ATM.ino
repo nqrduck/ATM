@@ -5,6 +5,8 @@
 #include "commands/TuneMatch.h"
 #include "commands/Homing.h"
 #include "commands/SetVoltages.h"
+#include "commands/MeasureReflection.h"
+
 
 #define DEBUG
 
@@ -17,6 +19,7 @@ FrequencySweep frequencySweep;
 TuneMatch tuneMatch;
 Homing homing;
 SetVoltages setVoltages;
+MeasureReflection measureReflection;
 
 // Frequency Settings
 #define FREQUENCY_STEP 100000U    // 100kHz frequency steps for initial frequency sweep
@@ -53,9 +56,9 @@ void setup()
   commandManager.registerCommand('d', &tuneMatch);
   commandManager.registerCommand('h', &homing);
   commandManager.registerCommand('v', &setVoltages);
+  commandManager.registerCommand('m', &measureReflection);
 
   pinMode(MISO_PIN, INPUT_PULLUP); // Seems to be necessary for SPI to work
-
 
   // Setup fo the tuning stepper
   tuner.DRIVER.begin();          // Initiate pins
@@ -149,22 +152,6 @@ void loop()
     // approximate call
     // CAREFULL -> if the coil has no proper matching in the frequency range this will not work! Only use this for testing -> otherwise use the automated 'decide' call.
     /*if (command == 'a')
-    else if (command == 'r')
-    {
-      float frequency_MHz = input_line.substring(1).toFloat();
-      uint32_t frequency = validateInput(frequency_MHz);
-      if (frequency == 0)
-        return;
-
-      float reflection_loss = calculateRL(frequency);
-
-      printInfo("For frequency:");
-      printInfo(frequency);
-      printInfo("RL is:");
-      printInfo(reflection_loss);
-
-      // optimize Matching
-    }
     else if (command == 'm')
     {
       printInfo("Optimize Matching around frequency:");
