@@ -3,7 +3,7 @@
 
 void VoltageSweep::execute(String input_line)
 {
-    int AVERAGES = 16;
+    int AVERAGES = 4;
     float VOLTAGE_STEP = 0.1;
     float MAX_VOLTAGE = 5.0;
 
@@ -35,7 +35,7 @@ void VoltageSweep::execute(String input_line)
             adac.write_DAC(VT, c_tuning_voltage);
 
             // Measure the reflection at the given frequency
-            float_t reflection = readReflection(AVERAGES);
+            int reflection = readReflection(AVERAGES);
 
             // If the reflection is lower than the current minimum, we have found a new minimum
             if (reflection > minimum_reflection)
@@ -43,6 +43,10 @@ void VoltageSweep::execute(String input_line)
                 minimum_reflection = reflection;
                 tuning_voltage = c_tuning_voltage;
                 matching_voltage = c_matching_voltage;
+                // If the returnloss is better than 14dB, we can stop the voltage sweep
+                float_t reflection_db = (reflection - 900) / 30.0;
+                if (reflection_db > 14)
+                    return;
             }
         }
     }
