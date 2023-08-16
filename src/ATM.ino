@@ -6,7 +6,7 @@
 #include "commands/Homing.h"
 #include "commands/SetVoltages.h"
 #include "commands/MeasureReflection.h"
-
+#include "commands/VoltageSweep.h"
 
 #define DEBUG
 
@@ -20,12 +20,12 @@ TuneMatch tuneMatch;
 Homing homing;
 SetVoltages setVoltages;
 MeasureReflection measureReflection;
+VoltageSweep voltageSweep;
 
 // Frequency Settings
 #define FREQUENCY_STEP 100000U    // 100kHz frequency steps for initial frequency sweep
 #define START_FREQUENCY 50000000U // 50MHz
 #define STOP_FREQUENCY 110000000  // 110MHz
-
 
 ADF4351 adf4351(SCLK_PIN, MOSI_PIN, LE_PIN, CE_PIN); // declares object PLL of type ADF4351
 
@@ -57,6 +57,7 @@ void setup()
   commandManager.registerCommand('h', &homing);
   commandManager.registerCommand('v', &setVoltages);
   commandManager.registerCommand('m', &measureReflection);
+  commandManager.registerCommand('s', &voltageSweep);
 
   pinMode(MISO_PIN, INPUT_PULLUP); // Seems to be necessary for SPI to work
 
