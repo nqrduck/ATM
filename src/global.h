@@ -12,6 +12,12 @@
 #include "Stepper.h"
 #include "Positions.h" // Calibrated frequency positions are defined her
 
+// Global variables for the adac module
+#define MAGNITUDE 0
+#define PHASE 1
+#define VT 2
+#define VM 3
+
 // We want these objects to be accessible from all files
 extern ADF4351 adf4351;
 extern Stepper tuner;

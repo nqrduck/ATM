@@ -58,5 +58,5 @@ The user can input different commands to the ATM-system using the serial interfa
 ## References
 - [adf4351](https://github.com/dfannin/adf4351) by David Fannin was modified to be used with an ESP32 microcontroller. 
 - [TMC2130Stepper](https://github.com/teemuatlut/TMC2130Stepper) by teemuatlut was used for the TMC2130 Stepper drivers.
+- [AD5593R](https://github.com/LukasJanavicius/AD5593R-Arduino-ESP32-Library) by LukasJanavicius was used for the AD5593R ADC.
 - [ArduiTaM](https://doi.org/10.5194/mr-1-105-2020) by Jouda et al. was an inspiration for the implementation. 
-
