@@ -14,6 +14,7 @@ public:
     void printHelp() override;
 
 private:
+    void sweepVoltages(float_t voltage_step, float_t tuning_start, float_t tuning_stop, float_t matching_start, float_t matching_stop);
     float_t matching_voltage;
     float_t tuning_voltage;
 };

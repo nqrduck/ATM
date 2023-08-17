@@ -19,14 +19,14 @@ struct FrequencyRange
 const Filter FG_71MHZ = {71000000U, LOW, LOW};
 const Filter FG_120MHZ = {120000000U, LOW, HIGH};
 const Filter FG_180MHZ = {180000000U, HIGH, LOW};
-const Filter FG_260MHZ = {260000000U, HIGH, LOW};
+const Filter FG_260MHZ = {260000000U, HIGH, HIGH};
 
 // All fitlers
 const Filter FILTERS[] = {FG_71MHZ, FG_120MHZ, FG_180MHZ, FG_260MHZ};
 
 // Settings for 100MHz -18dB
-//#define TUNING_STEPPER_HOME 34250U
-//#define MATCHING_STEPPER_HOME 45000U
+// #define TUNING_STEPPER_HOME 34250U
+// #define MATCHING_STEPPER_HOME 45000U
 const FrequencyRange RANGE_35_70MHZ =
     {
         35000000U,
@@ -60,5 +60,5 @@ const FrequencyRange RANGE_125_180MHZ =
 const FrequencyRange HOME_RANGE = RANGE_70_125MHZ;
 
 // Settings for 125MHz -30dB
-//#define TUNING_STEPPER_HOME 37550U
-//#define MATCHING_STEPPER_HOME 29500U
+// #define TUNING_STEPPER_HOME 37550U
+// #define MATCHING_STEPPER_HOME 29500U

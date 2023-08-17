@@ -108,7 +108,7 @@ void setup()
   adf4351.begin();
 
   adf4351.setrf(25000000U);
-  adf4351.pwrlevel = 2; // This equals -4dBm*/ For the electrical probe coils one should use at least -20dbm so an attenuator is necessary
+  adf4351.pwrlevel = 2; // This equals 2dBm*/ For the electrical probe coils one should use at least -20dbm so an attenuator is necessary
   adf4351.setf(START_FREQUENCY);
 
   // Setup for the RF Switch for the filterbank
