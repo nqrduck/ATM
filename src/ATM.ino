@@ -47,6 +47,9 @@ AD5593R adac = AD5593R(23, I2C_SDA, I2C_SCL);
 bool DACs[8] = {0, 0, 1, 1, 0, 0, 0, 0};
 bool ADCs[8] = {1, 1, 0, 0, 0, 0, 0, 0};
 
+// This sets the active filter to the first one in the list
+Filter active_filter = FILTERS[0];
+
 boolean homed = false;
 
 void setup()

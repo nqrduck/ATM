@@ -73,30 +73,27 @@ void setFrequency(uint32_t frequency)
 {
   // First we check what filter has to be used from the FILTERS array
   // Then we set the filterbank accordingly
-  for (int i = 0; i < sizeof(FILTERS) / sizeof(FILTERS[0]); i++)
+  int i;
+  for (i = 0; i < sizeof(FILTERS) / sizeof(FILTERS[0]); i++)
   {
     // For the first filter we just check if the frequency is below the fg
     if ((i == 0) && (frequency < FILTERS[i].fg))
-    {
-      digitalWrite(FILTER_SWITCH_A, FILTERS[i].control_input_a);
-      digitalWrite(FILTER_SWITCH_B, FILTERS[i].control_input_b);
       break;
-    }
     // For the last filter we just check if the frequency is above the fg
     else if ((i == sizeof(FILTERS) / sizeof(FILTERS[0]) - 1) && (frequency > FILTERS[i].fg))
-    {
-      digitalWrite(FILTER_SWITCH_A, FILTERS[i].control_input_a);
-      digitalWrite(FILTER_SWITCH_B, FILTERS[i].control_input_b);
       break;
-    }
     // For the filters in between we check if the frequency is between the fg and the fg of the previous filter
     else if ((frequency < FILTERS[i].fg) && (frequency > FILTERS[i - 1].fg))
-    {
-      digitalWrite(FILTER_SWITCH_A, FILTERS[i].control_input_a);
-      digitalWrite(FILTER_SWITCH_B, FILTERS[i].control_input_b);
       break;
-    }
   }
+  if (active_filter.fg != FILTERS[i].fg)
+  {
+    printInfo("Switching filter to: " + String(FILTERS[i].fg) + "Hz");
+    active_filter = FILTERS[i];
+    digitalWrite(FILTER_SWITCH_A, FILTERS[i].control_input_a);
+    digitalWrite(FILTER_SWITCH_B, FILTERS[i].control_input_b);
+  }
+
   // Finally we set the frequency
   adf4351.setf(frequency);
 }

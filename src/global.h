@@ -5,10 +5,10 @@
 #include <AccelStepper.h>
 #include <MultiStepper.h>
 #include <math.h>
-#include "ADF4351.h" 
+#include "ADF4351.h"
 #include "AD5593R.h"
 
-#include "Pins.h"      // Pins are defined here
+#include "Pins.h" // Pins are defined here
 #include "Stepper.h"
 #include "Positions.h" // Calibrated frequency positions are defined her
 
@@ -23,5 +23,7 @@ extern ADF4351 adf4351;
 extern Stepper tuner;
 extern Stepper matcher;
 extern AD5593R adac;
+
+extern Filter active_filter;
 
 #endif
