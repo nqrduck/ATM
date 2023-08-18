@@ -7,6 +7,7 @@
 #include "commands/SetVoltages.h"
 #include "commands/MeasureReflection.h"
 #include "commands/VoltageSweep.h"
+#include "commands/ControlSwitch.h"
 
 #define DEBUG
 
@@ -21,6 +22,7 @@ Homing homing;
 SetVoltages setVoltages;
 MeasureReflection measureReflection;
 VoltageSweep voltageSweep;
+ControlSwitch controlSwitch;
 
 // Frequency Settings
 #define FREQUENCY_STEP 100000U    // 100kHz frequency steps for initial frequency sweep
@@ -58,6 +60,7 @@ void setup()
   commandManager.registerCommand('v', &setVoltages);
   commandManager.registerCommand('m', &measureReflection);
   commandManager.registerCommand('s', &voltageSweep);
+  commandManager.registerCommand('c', &controlSwitch);
 
   pinMode(MISO_PIN, INPUT_PULLUP); // Seems to be necessary for SPI to work
 
@@ -117,10 +120,6 @@ void setup()
 
   digitalWrite(FILTER_SWITCH_A, LOW);
   digitalWrite(FILTER_SWITCH_B, HIGH);
-
-  // RF Switch for switching between preamp and tuning and matching module
-  pinMode(RF_SWITCH_PIN, OUTPUT);
-  digitalWrite(RF_SWITCH_PIN, HIGH);
 
   // ADAC module
   adac.enable_internal_Vref();
