@@ -44,7 +44,7 @@ const FrequencyRange RANGE_70_125MHZ =
         100000000U,
         FG_120MHZ,
         34400U,
-        48500U,
+        60500U,
 };
 
 const FrequencyRange RANGE_125_180MHZ =

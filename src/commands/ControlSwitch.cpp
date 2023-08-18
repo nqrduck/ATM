@@ -27,7 +27,8 @@ void ControlSwitch::execute(String input_line)
     }
     else if (switch_to == switch_state)
     {
-        result = "Already switched to " + String(switch_to);
+        String active_pathway = (switch_state == PRE_AMP) ? "preamp" : "atm system";
+        result = "Already switched to " + String(active_pathway);
     }
     else
     {
