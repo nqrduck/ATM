@@ -118,6 +118,10 @@ void setup()
   digitalWrite(FILTER_SWITCH_A, LOW);
   digitalWrite(FILTER_SWITCH_B, HIGH);
 
+  // RF Switch for switching between preamp and tuning and matching module
+  pinMode(RF_SWITCH_PIN, OUTPUT);
+  digitalWrite(RF_SWITCH_PIN, HIGH);
+
   // ADAC module
   adac.enable_internal_Vref();
   adac.set_DAC_max_2x_Vref();
@@ -127,10 +131,6 @@ void setup()
   adac.write_DAC(VT, 0.0);
 
   adac.configure_ADCs(ADCs);
-
-  // RF Switch for switching between preamp and tuning and matching module
-  pinMode(RF_SWITCH_PIN, OUTPUT);
-  digitalWrite(RF_SWITCH_PIN, HIGH);
 }
 
 // Serial communication via USB.

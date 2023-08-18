@@ -27,12 +27,9 @@
 
 #define DIAG1_PIN_M2 2 // used for homing
 
-//ADC Pin - obslete
-// #define REFLECTION_PIN 15
-
 // Filter Bank
 #define FILTER_SWITCH_A 23
 #define FILTER_SWITCH_B 22
 
 // RF Switch
-#define RF_SWITCH_PIN 34
+#define RF_SWITCH_PIN 15
