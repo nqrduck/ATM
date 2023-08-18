@@ -2,7 +2,6 @@
 #include <AccelStepper.h>
 #include <MultiStepper.h>
 
-
 #include "Utilities.h"
 
 // Frequency Settings
@@ -10,7 +9,7 @@
 #define START_FREQUENCY 50000000U // 50MHz
 #define STOP_FREQUENCY 110000000  // 110MHz
 
-int32_t findCurrentResonanceFrequency(uint32_t start_frequency, uint32_t stop_frequency, uint32_t frequency_step)
+int32_t findCurrentResonanceFrequency(uint32_t start_frequency, uint32_t stop_frequency, uint32_t frequency_step, boolean print_data)
 {
   int maximum_reflection = 0;
   int current_reflection = 0;
@@ -23,7 +22,7 @@ int32_t findCurrentResonanceFrequency(uint32_t start_frequency, uint32_t stop_fr
 
   for (uint32_t frequency = start_frequency; frequency <= stop_frequency; frequency += frequency_step)
   {
-    //adf4351.setf(frequency);
+    // adf4351.setf(frequency);
     setFrequency(frequency);
 
     // delay(5); // This delay is essential! There is a glitch with ADC2 that leads to wrong readings if GPIO27 is set to high for multiple microseconds.
@@ -32,7 +31,8 @@ int32_t findCurrentResonanceFrequency(uint32_t start_frequency, uint32_t stop_fr
     current_phase = readPhase(4);
 
     // Send out the frequency identifier f with the frequency value
-    Serial.println(String("f") + frequency + "r" + current_reflection + "p" + current_phase);
+    if (print_data)
+      Serial.println(String("f") + frequency + "r" + current_reflection + "p" + current_phase);
 
     if (current_reflection > maximum_reflection)
     {
@@ -56,7 +56,6 @@ int32_t findCurrentResonanceFrequency(uint32_t start_frequency, uint32_t stop_fr
   for (uint32_t frequency = minimum_frequency - 300000U; frequency <= minimum_frequency + 300000U; frequency += frequency_step)
   {
     adf4351.setf(frequency);
-    delay(100); // Higher delay so the capacitor has time to charge
 
     current_reflection = readReflection(64);
 
@@ -91,7 +90,7 @@ void setFrequency(uint32_t frequency)
       break;
     }
     // For the filters in between we check if the frequency is between the fg and the fg of the previous filter
-    else if ((frequency < FILTERS[i].fg) &&  (frequency > FILTERS[i - 1].fg))
+    else if ((frequency < FILTERS[i].fg) && (frequency > FILTERS[i - 1].fg))
     {
       digitalWrite(FILTER_SWITCH_A, FILTERS[i].control_input_a);
       digitalWrite(FILTER_SWITCH_B, FILTERS[i].control_input_b);
@@ -100,7 +99,6 @@ void setFrequency(uint32_t frequency)
   }
   // Finally we set the frequency
   adf4351.setf(frequency);
-  
 }
 
 int readReflection(int averages)
@@ -384,14 +382,17 @@ uint32_t validateInput(float frequency_MHz)
   }
 }
 
-void printInfo(String text) {
+void printInfo(String text)
+{
   Serial.println("i" + text);
 }
 
-void printInfo(uint32_t number) {
+void printInfo(uint32_t number)
+{
   Serial.println("i" + String(number)); // convert the number to a string before concatenating
 }
 
-void printError(String text) {
+void printError(String text)
+{
   Serial.println("e" + text);
 }
