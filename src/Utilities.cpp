@@ -27,8 +27,8 @@ int32_t findCurrentResonanceFrequency(uint32_t start_frequency, uint32_t stop_fr
 
     // delay(5); // This delay is essential! There is a glitch with ADC2 that leads to wrong readings if GPIO27 is set to high for multiple microseconds.
 
-    current_reflection = readReflection(16);
-    current_phase = readPhase(16);
+    current_reflection = readReflection(8);
+    current_phase = readPhase(1);
 
     // Send out the frequency identifier f with the frequency value
     if (print_data)
@@ -82,7 +82,7 @@ void frequencySweep(uint32_t start_frequency, uint32_t stop_frequency, uint32_t 
     setFrequency(frequency);
 
     current_reflection = readReflection(averages);
-    current_phase = readPhase(averages);
+    current_phase = readPhase(1);
 
     // Send out the frequency identifier f with the frequency value
     if (print_data)
