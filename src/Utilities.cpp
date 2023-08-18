@@ -27,8 +27,8 @@ int32_t findCurrentResonanceFrequency(uint32_t start_frequency, uint32_t stop_fr
 
     // delay(5); // This delay is essential! There is a glitch with ADC2 that leads to wrong readings if GPIO27 is set to high for multiple microseconds.
 
-    current_reflection = readReflection(4);
-    current_phase = readPhase(4);
+    current_reflection = readReflection(16);
+    current_phase = readPhase(16);
 
     // Send out the frequency identifier f with the frequency value
     if (print_data)
@@ -67,6 +67,27 @@ int32_t findCurrentResonanceFrequency(uint32_t start_frequency, uint32_t stop_fr
   }
 
   return minimum_frequency;
+}
+
+void frequencySweep(uint32_t start_frequency, uint32_t stop_frequency, uint32_t frequency_step, boolean print_data, int averages)
+{
+  int current_reflection = 0;
+  int current_phase = 0;
+
+  adf4351.setf(start_frequency); // A frequency value needs to be set once -> there seems to be a bug with the first SPI call
+  delay(50);
+
+  for (uint32_t frequency = start_frequency; frequency <= stop_frequency; frequency += frequency_step)
+  {
+    setFrequency(frequency);
+
+    current_reflection = readReflection(averages);
+    current_phase = readPhase(averages);
+
+    // Send out the frequency identifier f with the frequency value
+    if (print_data)
+      Serial.println(String("f") + frequency + "r" + current_reflection + "p" + current_phase);
+  }
 }
 
 void setFrequency(uint32_t frequency)

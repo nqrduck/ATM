@@ -18,6 +18,17 @@
 int32_t findCurrentResonanceFrequency(uint32_t start_frequency, uint32_t stop_frequency, uint32_t frequency_step, boolean print_data = false);
 
 /**
+ * @brief This function sweeps the frequency from start_frequency to stop_frequency with a step size of frequency_step.
+ * It can be used for visualization of the reflection and phase data.
+ *
+ * @param start_frequency
+ * @param stop_frequency
+ * @param frequency_step
+ * @param print_data
+ */
+void frequencySweep(uint32_t start_frequency, uint32_t stop_frequency, uint32_t frequency_step, boolean print_data = false, int averages = 4);
+
+/**
  * @brief This function sets the frequency of the frequency synthesizer and switches the filterbank accordingly.
  *
  * @param frequency The frequency that should be set

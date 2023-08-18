@@ -16,15 +16,13 @@ void FrequencySweep::execute(String input_line)
     uint32_t stopFreq = input_line.substring(stopFreqIndex, freqStepIndex - 1).toInt();
     uint32_t freqStep = input_line.substring(freqStepIndex).toInt(); // If no second parameter is provided, substring() goes to the end of the string
 
-    // The find current resonance frequency also prints prints the S11 data to the serial monitor
-    resonance_frequency = findCurrentResonanceFrequency(startFreq, stopFreq, freqStep, true);
+    frequencySweep(startFreq, stopFreq, freqStep, true, 8);
 }
 
 void FrequencySweep::printResult()
 {
     // This tells the PC that the frequency sweep is finished
-    Serial.print("r");
-    printInfo(resonance_frequency);
+    Serial.println("r");
 }
 
 void FrequencySweep::printHelp()
