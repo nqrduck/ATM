@@ -6,6 +6,11 @@
 
 class Command {
 public:
+
+    /**
+     * @brief Confirms the command then executes it.
+    */
+   void confirmAndExecute(String input_line);
     /**
    * @brief Executes the command.
    * Pure virtual function that must be implemented by derived classes.
@@ -24,7 +29,10 @@ public:
     */
     virtual void printHelp() = 0;
 
-   
+    /**
+     * @brief Confirms the command by sending the 'c' character as confirmation.
+    */
+    void confirmCommand();
 };
 
 #endif
