@@ -121,19 +121,12 @@ void setFrequency(uint32_t frequency)
 
 int readReflection(int averages)
 {
-  int reflection = 0;
-  for (int i = 0; i < averages; i++)
-    // We multiply by 1000 to get the result in millivolts
-    reflection += (adac.read_ADC(0) * 1000);
-  return reflection / averages;
+  return (adac.read_ADC(MAGNITUDE, averages) * 1000);
 }
 
 int readPhase(int averages)
 {
-  int phase = 0;
-  for (int i = 0; i < averages; i++)
-    phase += (adac.read_ADC(1) * 1000);
-  return phase / averages;
+  return (adac.read_ADC(PHASE, averages) * 1000);
 }
 
 int sumReflectionAroundFrequency(uint32_t center_frequency)

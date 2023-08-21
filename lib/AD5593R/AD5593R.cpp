@@ -362,7 +362,7 @@ void AD5593R::configure_ADCs(bool *channels)
   }
 }
 
-float AD5593R::read_ADC(byte channel)
+float AD5593R::read_ADC(byte channel, int averages)
 {
   if (config.ADCs[channel] == 0)
   {
@@ -376,8 +376,6 @@ float AD5593R::read_ADC(byte channel)
     AD5593R_PRINTLN("Vref, or ADC_max is not defined");
     return -2;
   }
-  if (_a0 > -1)
-    digitalWrite(_a0, LOW);
 
   Wire.beginTransmission(_i2c_address);
   Wire.write(_ADAC_ADC_SEQUENCE);
@@ -385,20 +383,31 @@ float AD5593R::read_ADC(byte channel)
   Wire.write(byte(1 << channel));
   Wire.endTransmission();
 
-  Wire.beginTransmission(_i2c_address);
-  Wire.write(_ADAC_ADC_READ);
-  Wire.endTransmission();
+  int sum = 0;
+  for (int i = 0; i < averages; i++)
+  {
+    if (_a0 > -1)
+      gpio_set_level((gpio_num_t)_a0, LOW);
 
-  unsigned int data_bits = 0;
+    Wire.beginTransmission(_i2c_address);
+    Wire.write(_ADAC_ADC_READ);
+    Wire.endTransmission();
 
-  Wire.requestFrom(int(_i2c_address), int(2), int(1));
-  if (Wire.available())
-    data_bits = (Wire.read() & 0x0f) << 8;
-  if (Wire.available())
-    data_bits = data_bits | Wire.read();
-  if (_a0 > -1)
-    digitalWrite(_a0, HIGH);
-  float data = _ADC_max * (data_bits) / 4095;
+    delayMicroseconds(10);
+
+    Wire.requestFrom(int(_i2c_address), int(2), int(1));
+    unsigned int data_bits = 0;
+    if (Wire.available())
+      data_bits = (Wire.read() & 0x0f) << 8;
+    if (Wire.available())
+      data_bits = data_bits | Wire.read();
+
+    sum += (data_bits);
+
+    if (_a0 > -1)
+      gpio_set_level((gpio_num_t)_a0, HIGH);
+  }
+  float data = _ADC_max * sum / 4095 / averages;
 
   AD5593R_PRINT("Channel ");
   AD5593R_PRINT(channel);

@@ -27,12 +27,12 @@ https://github.com/LukasJanavicius
 // and be sure to use Serial.begin() in the setup.
 //  AD5593R_DEBUG
 #pragma once
-//comment this line to disable debugging
-//#define AD5593R_DEBUG
+// comment this line to disable debugging
+// #define AD5593R_DEBUG
 
 #ifdef AD5593R_DEBUG
-#define AD5593R_PRINT(...)    Serial.print(__VA_ARGS__)
-#define AD5593R_PRINTLN(...)  Serial.println(__VA_ARGS__)
+#define AD5593R_PRINT(...) Serial.print(__VA_ARGS__)
+#define AD5593R_PRINTLN(...) Serial.println(__VA_ARGS__)
 #else
 #define AD5593R_PRINT(...)
 #define AD5593R_PRINTLN(...)
@@ -43,27 +43,28 @@ https://github.com/LukasJanavicius
 #endif
 #include <Arduino.h>
 
-
 //////Classes//////
-class AD5593R {
+class AD5593R
+{
 public:
-
   // This configuration structure contains arrays of booleans,
   // each array follows the form [channel0,...,channel7]
   // where a  1 indicates the channel should be configured as the name implies
   // for example an array ADCs[8] = {1,1,0,0,0,0,0,0} will configure channels 0 and 1 as ADCs.
   // a declaration of this structure should be defined in your code, and passed into configure().
   // You should not double assign pins, as only the first declaration will be assigned.
-  struct configuration {
-    bool ADCs[8]; //ADC pins
-    bool DACs[8]; //DAC pins
-    bool GPIs[8]; //input pins
-    bool GPOs[8]; //output pins
+  struct configuration
+  {
+    bool ADCs[8]; // ADC pins
+    bool DACs[8]; // DAC pins
+    bool GPIs[8]; // input pins
+    bool GPOs[8]; // output pins
   };
   configuration config;
 
   // This structure contains arrays of
-  struct Read_write_values {
+  struct Read_write_values
+  {
     float ADCs[8];
     float DACs[8];
     bool GPI_reads[8];
@@ -96,42 +97,38 @@ public:
   // or enable the internal reference will mean that any DAC/ADC function call will result in an error!
   void set_Vref(float Vref);
 
-  //configures the selected channel as a DAC
+  // configures the selected channel as a DAC
   void configure_DAC(byte channel);
 
-  void configure_DACs(bool* channels);
+  void configure_DACs(bool *channels);
   // Sets the output voltage value of a given channel, returns 1 if the write is completed
   // if the function returns -1 if the specified channel is not an DAC,
   // if no reference voltage is specified a -2 will be returned,
   // and if the voltage exceeds the maximum allowable voltage a -3 will be returned.
   int write_DAC(byte channel, float voltage);
 
-  void write_DACs(float* voltages);
+  void write_DACs(float *voltages);
 
-  //configures the selected channel as a ADC
+  // configures the selected channel as a ADC
   void configure_ADC(byte channel);
 
-
-  void configure_ADCs(bool* channels);
+  void configure_ADCs(bool *channels);
 
   // Reads the voltage value of a given ADC channel, returns the Voltage if the write is completed
   // if the function returns -1 if the specified channel is not an ADC,
   // and if no reference voltage is specified a -2 will be returned.
-  float read_ADC(byte channel);
+  float read_ADC(byte channel, int averages = 1);
 
-  float* read_ADCs();
-
+  float *read_ADCs();
 
   void configure_GPI(byte channel);
-  void configure_GPIs(bool* channels);
+  void configure_GPIs(bool *channels);
 
   void configure_GPO(byte channel);
-  void configure_GPOs(bool* channels);
+  void configure_GPOs(bool *channels);
 
-  bool* read_GPIs();
-  void write_GPOs(bool* pin_states);
-
-
+  bool *read_GPIs();
+  void write_GPOs(bool *pin_states);
 
   /*
 
@@ -172,12 +169,11 @@ private:
   // These structures are adapted from
   // https://github.com/MikroElektronika/HEXIWEAR/blob/master/SW/Click%20Examples%20mikroC/examples/ADAC/library/__ADAC_Driver.h
 
-
   int _num_of_channels = 8;
 
   int _a0;
 
-  //general purpose control register data Bytes
+  // general purpose control register data Bytes
   byte _GPRC_msbs;
   byte _GPRC_lsbs;
 
@@ -190,18 +186,18 @@ private:
   byte _GPI_config;
   byte _GPO_config;
 
-  //default address of the AD5593R, multiple devices are handled by setting the desired device's a0 to LOW
-  //by default the a0 pin will be pulled high, effectively changing its address. For more information on the addressing please
-  //refer to the data sheet in the introduction
+  // default address of the AD5593R, multiple devices are handled by setting the desired device's a0 to LOW
+  // by default the a0 pin will be pulled high, effectively changing its address. For more information on the addressing please
+  // refer to the data sheet in the introduction
   byte _i2c_address = 0x10;
 
-  //Value of the reference voltage, if none is specified then all ADC/DAC functions will throw errors
+  // Value of the reference voltage, if none is specified then all ADC/DAC functions will throw errors
   float _Vref = -1;
 
-  //flag for 2xVref mode
+  // flag for 2xVref mode
   bool _ADC_2x_mode = 0;
 
-  //flag for 2xVref mode
+  // flag for 2xVref mode
   bool _DAC_2x_mode = 0;
 
   float _ADC_max = -1;
