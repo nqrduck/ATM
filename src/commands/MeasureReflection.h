@@ -4,7 +4,7 @@
 #include "Command.h"
 
 /**
- * @brief This class is used to perform a frequency sweep
+ * @brief This class is used to measure the  reflection at  a given frequency
  */
 class MeasureReflection : public Command
 {

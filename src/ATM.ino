@@ -8,6 +8,7 @@
 #include "commands/MeasureReflection.h"
 #include "commands/VoltageSweep.h"
 #include "commands/ControlSwitch.h"
+#include "commands/MoveStepper.h"
 
 #define DEBUG
 
@@ -23,6 +24,7 @@ SetVoltages setVoltages;
 MeasureReflection measureReflection;
 VoltageSweep voltageSweep;
 ControlSwitch controlSwitch;
+MoveStepper moveStepper;
 
 // Frequency Settings
 #define FREQUENCY_STEP 100000U    // 100kHz frequency steps for initial frequency sweep
@@ -61,9 +63,10 @@ void setup()
   commandManager.registerCommand('d', &tuneMatch);
   commandManager.registerCommand('h', &homing);
   commandManager.registerCommand('v', &setVoltages);
-  commandManager.registerCommand('m', &measureReflection);
+  commandManager.registerCommand('r', &measureReflection);
   commandManager.registerCommand('s', &voltageSweep);
   commandManager.registerCommand('c', &controlSwitch);
+  commandManager.registerCommand('m', &moveStepper);
 
   pinMode(MISO_PIN, INPUT_PULLUP); // Seems to be necessary for SPI to work
 
@@ -135,26 +138,29 @@ void setup()
   adac.configure_ADCs(ADCs);
 }
 
-// Serial communication via USB.
-// Commands:
-// f<start frequency>f<stop frequency>f<frequency step> - Frequency Sweep
-// d<target frequency in MHz>f<start frequency>f<stop frequency>f<frequency step> - Tune and Match
-// h - Homing
 
 void loop()
 {
+  // Serial communication via USB.
+  // Commands:
+  // f<start frequency>f<stop frequency>f<frequency step> - Frequency Sweep
+  // d<target frequency in MHz>f<start frequency>f<stop frequency>f<frequency step> - Tune and Match
+  // h - Homing
+  // v<VM voltage in V>v<VT voltage in V> - Set Voltages
+  // r<frequency in MHz> - Measure Reflection
+  // s<start voltage in V>s<stop voltage in V>s<voltage step in V> - Voltage Sweep
+  // c<filter identifier> - Control Switch for the filterbank 'p' stands for preamplifier and 'a' for automatic tuning and matching. 
+  // m<stepper identifier><steps> - Move stepper motor. 't' for tuner and 'm' for matcher. Positive steps move the stepper away from the motor and negative steps move the stepper towards the motor.
   if (Serial.available())
   {
-
     String input_line = Serial.readStringUntil('\n'); // read string until newline character
 
     char command = input_line.charAt(0); // gets first character of input
 
     commandManager.executeCommand(command, input_line);
     commandManager.printCommandResult(command);
-    // approximate call
-    // CAREFULL -> if the coil has no proper matching in the frequency range this will not work! Only use this for testing -> otherwise use the automated 'decide' call.
-    /*if (command == 'a')
+    /*
+    Optimize matching call
     else if (command == 'm')
     {
       printInfo("Optimize Matching around frequency:");
@@ -186,10 +192,7 @@ void loop()
     {
       printInfo("Calibrating ...");
       getCalibrationValues();
-    }
-    else
-    {
-      printInfo("Invalid Input");
-    }*/
+    } */
   }
 }
+
