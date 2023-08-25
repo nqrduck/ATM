@@ -17,15 +17,13 @@ int32_t findCurrentResonanceFrequency(uint32_t start_frequency, uint32_t stop_fr
   uint32_t minimum_frequency = 0;
   float reflection = 0;
 
-  adf4351.setf(start_frequency); // A frequency value needs to be set once -> there seems to be a bug with the first SPI call
+  setFrequency(start_frequency); // A frequency value needs to be set once -> there seems to be a bug with the first SPI call
   delay(50);
 
   for (uint32_t frequency = start_frequency; frequency <= stop_frequency; frequency += frequency_step)
   {
-    // adf4351.setf(frequency);
+    // setFrequency(frequency);
     setFrequency(frequency);
-
-    // delay(5); // This delay is essential! There is a glitch with ADC2 that leads to wrong readings if GPIO27 is set to high for multiple microseconds.
 
     current_reflection = readReflection(8);
     current_phase = readPhase(1);
@@ -41,7 +39,7 @@ int32_t findCurrentResonanceFrequency(uint32_t start_frequency, uint32_t stop_fr
     }
   }
 
-  adf4351.setf(minimum_frequency);
+  setFrequency(minimum_frequency);
   delay(50);
   reflection = readReflection(16);
   if (reflection < 130)
@@ -55,7 +53,7 @@ int32_t findCurrentResonanceFrequency(uint32_t start_frequency, uint32_t stop_fr
   maximum_reflection = 0;
   for (uint32_t frequency = minimum_frequency - 300000U; frequency <= minimum_frequency + 300000U; frequency += frequency_step)
   {
-    adf4351.setf(frequency);
+    setFrequency(frequency);
 
     current_reflection = readReflection(64);
 
@@ -74,7 +72,7 @@ void frequencySweep(uint32_t start_frequency, uint32_t stop_frequency, uint32_t 
   int current_reflection = 0;
   int current_phase = 0;
 
-  adf4351.setf(start_frequency); // A frequency value needs to be set once -> there seems to be a bug with the first SPI call
+  setFrequency(start_frequency); // A frequency value needs to be set once -> there seems to be a bug with the first SPI call
   delay(50);
 
   for (uint32_t frequency = start_frequency; frequency <= stop_frequency; frequency += frequency_step)
@@ -136,8 +134,7 @@ int sumReflectionAroundFrequency(uint32_t center_frequency)
   // sum approach -> cummulates reflection around resonance -> reduce influence of wrong minimum and noise
   for (uint32_t frequency = center_frequency - 500000U; frequency < center_frequency + 500000U; frequency += FREQUENCY_STEP / 10)
   {
-    adf4351.setf(frequency);
-    delay(10);
+    setFrequency(frequency);
     sum_reflection += readReflection(16);
   }
 
@@ -191,7 +188,7 @@ int32_t bruteforceResonance(uint32_t target_frequency, uint32_t current_resonanc
     if (current_resonance_frequency == target_frequency)
       break;
 
-    adf4351.setf(current_resonance_frequency);
+    setFrequency(current_resonance_frequency);
     delay(100);
     resonance_reflection = readReflection(16);
     DEBUG_PRINT(resonance_reflection);
@@ -241,7 +238,7 @@ int optimizeMatching(uint32_t current_resonance_frequency)
 
   DEBUG_PRINT(iteration_steps);
 
-  adf4351.setf(current_resonance_frequency);
+  setFrequency(current_resonance_frequency);
   for (int i = 0; i < ITERATIONS; i++)
   {
     DEBUG_PRINT(i);
@@ -261,7 +258,7 @@ int optimizeMatching(uint32_t current_resonance_frequency)
       continue;
     }
 
-    adf4351.setf(current_resonance_frequency);
+    setFrequency(current_resonance_frequency);
     delay(100);
 
     current_reflection = readReflection(16);
@@ -304,7 +301,7 @@ int getMatchRotation(uint32_t current_resonance_frequency)
   current_resonance_frequency = findCurrentResonanceFrequency(current_resonance_frequency - 1000000U, current_resonance_frequency + 1000000U, FREQUENCY_STEP / 10);
   // int clockwise_match = sumReflectionAroundFrequency(current_resonance_frequency);
   if (current_resonance_frequency != 0)
-    adf4351.setf(current_resonance_frequency);
+    setFrequency(current_resonance_frequency);
   delay(100);
   int clockwise_match = readReflection(64);
 
@@ -313,7 +310,7 @@ int getMatchRotation(uint32_t current_resonance_frequency)
 
   current_resonance_frequency = findCurrentResonanceFrequency(current_resonance_frequency - 1000000U, current_resonance_frequency + 1000000U, FREQUENCY_STEP / 10);
   // int anticlockwise_match = sumReflectionAroundFrequency(current_resonance_frequency);
-  adf4351.setf(current_resonance_frequency);
+  setFrequency(current_resonance_frequency);
   delay(100);
   int anticlockwise_match = readReflection(64);
 
