@@ -28,7 +28,7 @@ void MoveStepper::execute(String input_line)
 void MoveStepper::printResult()
 {
     // Print Info  confirmation
-    printInfo("Fniished moving stepper");
+    printInfo("Fnished moving stepper");
 }
 
 void MoveStepper::printHelp()
