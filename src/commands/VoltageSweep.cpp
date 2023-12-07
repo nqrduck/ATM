@@ -77,6 +77,12 @@ void VoltageSweep::printResult()
     // Print the results which are then read by the autotm module
     char identifier = 'v';
     char delimiter = 't';
+
+    if (tuning_voltage < 0.0 || matching_voltage < 0.0)
+    {
+        tuning_voltage = 0.0;
+        matching_voltage = 0.0;
+    }
     String text = String(identifier) + String(matching_voltage) + String(delimiter) + String(tuning_voltage);
 
     Serial.println(text);
