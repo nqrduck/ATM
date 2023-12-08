@@ -29,6 +29,10 @@ void MoveStepper::printResult()
 {
     // Print Info  confirmation
     printInfo("Fnished moving stepper");
+    uint32_t tuning_position = tuner.STEPPER.currentPosition();
+    uint32_t matching_position = matcher.STEPPER.currentPosition();
+    String position = "p" + String(tuning_position) + "m" + String(matching_position);
+    Serial.println(position);
 }
 
 void MoveStepper::printHelp()
