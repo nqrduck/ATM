@@ -90,7 +90,7 @@ void setup()
   matcher.DRIVER.coolstep_min_speed(0xFFFFF); // 20bit max - needs to be set for stallguard
   matcher.DRIVER.diag1_stall(1);
   matcher.DRIVER.diag1_active_high(1);
-  matcher.DRIVER.sg_stall_value(STALL_VALUE - 2);
+  matcher.DRIVER.sg_stall_value(STALL_VALUE-2);
   matcher.DRIVER.shaft_dir(0);
   matcher.DRIVER.stealthChop(1); // Enable extremely quiet stepping
 

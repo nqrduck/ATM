@@ -339,6 +339,8 @@ int stallStepper(Stepper stepper)
 
   stepper.STEPPER.stop();
 
+  delay(250);
+
   return stepper.STEPPER.currentPosition(); // returns value until limit is reached
 }
 
