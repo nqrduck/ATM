@@ -7,7 +7,7 @@ void MeasureReflection::execute(String input_line)
     return_loss = 0;
     phase = 0;
 
-    printInfo("Measure Reflection");
+    // printInfo("Measure Reflection");
     // Get the float after the r character which is the frequency value where the reflection measurment should be performed
     float frequency_MHz = input_line.substring(1).toFloat();
     uint32_t frequency = validateInput(frequency_MHz);
@@ -28,7 +28,7 @@ void MeasureReflection::execute(String input_line)
 void MeasureReflection::printResult()
 {
     // Print the results which are then read by the autotm module
-    char identifier = 'r';
+    char identifier = 'm';
     char delimiter = 'p';
     String text = String(identifier) + String(return_loss) + String(delimiter) + String(phase);
 
