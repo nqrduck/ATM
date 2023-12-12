@@ -48,11 +48,11 @@ void VoltageSweep::sweepVoltages(float_t voltage_step, float_t tuning_start, flo
     // This bruteforces the optimum voltage for tuning and matching.
     for (float_t c_tuning_voltage = tuning_start; c_tuning_voltage <= tuning_stop; c_tuning_voltage += voltage_step)
     {
+        adac.write_DAC(VT, c_tuning_voltage);
         for (float_t c_matching_voltage = matching_start; c_matching_voltage <= matching_stop; c_matching_voltage += voltage_step)
         {
             // Set the tuning and matching voltage
             adac.write_DAC(VM, c_matching_voltage);
-            adac.write_DAC(VT, c_tuning_voltage);
 
             // Measure the reflection at the given frequency
             int reflection = readReflection(AVERAGES);

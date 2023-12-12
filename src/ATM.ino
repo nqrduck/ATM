@@ -9,6 +9,7 @@
 #include "commands/VoltageSweep.h"
 #include "commands/ControlSwitch.h"
 #include "commands/MoveStepper.h"
+#include "commands/PositionSweep.h"
 
 #define DEBUG
 
@@ -25,6 +26,7 @@ MeasureReflection measureReflection;
 VoltageSweep voltageSweep;
 ControlSwitch controlSwitch;
 MoveStepper moveStepper;
+PositionSweep positionSweep;
 
 // Frequency Settings
 #define FREQUENCY_STEP 100000U    // 100kHz frequency steps for initial frequency sweep
@@ -67,6 +69,7 @@ void setup()
   commandManager.registerCommand('s', &voltageSweep);
   commandManager.registerCommand('c', &controlSwitch);
   commandManager.registerCommand('m', &moveStepper);
+  commandManager.registerCommand('p', &positionSweep);
 
   pinMode(MISO_PIN, INPUT_PULLUP); // Seems to be necessary for SPI to work
 
@@ -151,6 +154,7 @@ void loop()
   // s<start voltage in V>s<stop voltage in V>s<voltage step in V> - Voltage Sweep
   // c<filter identifier> - Control Switch for the filterbank 'p' stands for preamplifier and 'a' for automatic tuning and matching. 
   // m<stepper identifier><steps> - Move stepper motor. 't' for tuner and 'm' for matcher. Positive steps move the stepper away from the motor and negative steps move the stepper towards the motor.
+  // p<tuning range in steps>t<tuning step in steps>t<tuning backlash in steps>m<matching range in steps>m<matching step in steps>m<matching backlash in steps> - Position Sweep
   if (Serial.available())
   {
     String input_line = Serial.readStringUntil('\n'); // read string until newline character
