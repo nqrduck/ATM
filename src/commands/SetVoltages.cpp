@@ -6,15 +6,23 @@ void SetVoltages::execute(String input_line){
     int VMIndex = input_line.indexOf(delimiter) + 1;
     int VTIndex = input_line.indexOf(delimiter, VMIndex) + 1;
 
-    float VMVoltage = input_line.substring(VMIndex, VTIndex - 1).toFloat();
-    float VTVoltage = input_line.substring(VTIndex).toFloat();
+    tuning_voltage = input_line.substring(VMIndex, VTIndex - 1).toFloat();
+    matching_voltage = input_line.substring(VTIndex).toFloat();
 
-    adac.write_DAC(VM, VMVoltage);
-    adac.write_DAC(VT, VTVoltage);
+    adac.write_DAC(VM, tuning_voltage);
+    adac.write_DAC(VT, matching_voltage);
 }
 
 void SetVoltages::printResult(){
-    printInfo("Voltages set successfully");
+    // Print the results which are then read by the autotm module
+    char identifier = 'v';
+    char delimiter = 't';
+
+    String text = String(identifier) + String(matching_voltage) + String(delimiter) + String(tuning_voltage);
+
+    Serial.println(text);
+
+    printInfo("Voltages set to VM: " + String(matching_voltage) + " V and VT: " + String(tuning_voltage) + " V");
 }
 
 void SetVoltages::printHelp(){

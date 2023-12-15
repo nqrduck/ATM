@@ -3,17 +3,71 @@
 
 void VoltageSweep::execute(String input_line)
 {
-    float MAX_VOLTAGE = 5.0;
-    float MIN_VOLTAGE = 0.0;
+    // Command format is s<frequency in MHz>o<optional tuning voltage>o<optional matching voltage>
+
 
     // First we get the frequency where the voltage sweep should be performed
-    float frequency_MHz = input_line.substring(1).toFloat();
-    uint32_t frequency = validateInput(frequency_MHz);
-    if (frequency == 0)
+    char identifier = 's';
+    char delimiter = 'o';
+    int frequencyIndex = input_line.indexOf(identifier) + 1;
+
+    // Check if optional voltages are given
+    if (input_line.indexOf(delimiter, frequencyIndex) == -1)
     {
-        printInfo("Invalid frequency input for voltage sweep.");
+        // If no optional voltages are given, we perform an automatic voltage sweep
+        String frequency_MHz = input_line.substring(frequencyIndex);
+        uint32_t frequency = validateInput(frequency_MHz.toFloat());
+        if (frequency == 0)
+        {
+            printInfo("Invalid frequency input for voltage sweep.");
+            return;
+        }
+        printInfo("Starting automatic voltage sweep at " + String(frequency) + " MHz");
+        
+        automaticSweep(frequency);
         return;
     }
+    else
+    {
+        // If optional voltages are given, we perform a voltage sweep with the given voltages
+        int tuningIndex = input_line.indexOf(delimiter, frequencyIndex) + 1;
+        int matchingIndex = input_line.indexOf(delimiter, tuningIndex) + 1;
+
+        float frequency_MHz = input_line.substring(frequencyIndex, tuningIndex - 1).toFloat();
+        float tuning_voltage_str = input_line.substring(tuningIndex, matchingIndex - 1).toFloat();
+        float matching_voltage_str = input_line.substring(matchingIndex).toFloat();
+
+        uint32_t frequency = validateInput(frequency_MHz);
+        if (frequency == 0)
+        {
+            printInfo("Invalid frequency input for voltage sweep.");
+            return;
+        }
+        printInfo("Starting preset voltage sweep at " + String(frequency) + " MHz");
+        presetVoltages(frequency, tuning_voltage_str, matching_voltage_str);
+    }
+}
+
+void VoltageSweep::presetVoltages(uint32_t frequency, float_t tuning_voltage, float_t matching_voltage)
+{
+    // For preset voltages we only scan the tuning and matching voltages in a reduced range. This is because the voltages are already close to the optimum values.
+    float_t TUNING_RANGE = 0.2;
+    float_t MATCHING_RANGE = 0.2;
+    float_t voltage_step = 0.01;
+
+    setFrequency(frequency);
+
+    //  We use the sweepVoltages function to find the optimum tuning and matching voltages
+    sweepVoltages(voltage_step, tuning_voltage - TUNING_RANGE, tuning_voltage + TUNING_RANGE, matching_voltage - MATCHING_RANGE, matching_voltage + MATCHING_RANGE);
+
+    adac.write_DAC(VM, matching_voltage);
+    adac.write_DAC(VT, tuning_voltage);
+}
+
+void VoltageSweep::automaticSweep(uint32_t frequency)
+{
+    float MAX_VOLTAGE = 5.0;
+    float MIN_VOLTAGE = 0.0;
 
     // First set the frequency 2 MHz below the target frequency
     uint32_t distance = 2000000;
@@ -33,6 +87,13 @@ void VoltageSweep::execute(String input_line)
     tuning_range = 0.1;
     float_t matching_range = 0.2;
     sweepVoltages(0.01, tuning_voltage - tuning_range, tuning_voltage + tuning_range, matching_voltage - matching_range, matching_voltage + matching_range);
+
+    if (tuning_voltage < 0.0 || matching_voltage < 0.0)
+    {
+        tuning_voltage = 0.0;
+        matching_voltage = 0.0;
+        printError("No valid voltages found for automatic voltage sweep.");
+    }
 
     // Finally we set the found voltages
     adac.write_DAC(VM, matching_voltage);
@@ -78,11 +139,6 @@ void VoltageSweep::printResult()
     char identifier = 'v';
     char delimiter = 't';
 
-    if (tuning_voltage < 0.0 || matching_voltage < 0.0)
-    {
-        tuning_voltage = 0.0;
-        matching_voltage = 0.0;
-    }
     String text = String(identifier) + String(matching_voltage) + String(delimiter) + String(tuning_voltage);
 
     Serial.println(text);

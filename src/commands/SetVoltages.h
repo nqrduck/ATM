@@ -15,6 +15,9 @@ public:
     void execute(String input_line) override;
     void printResult() override;
     void printHelp() override;
+
+    float_t matching_voltage;
+    float_t tuning_voltage;
 };
 
 #endif
