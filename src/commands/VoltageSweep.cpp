@@ -23,7 +23,7 @@ void VoltageSweep::execute(String input_line)
             return;
         }
         printInfo("Starting automatic voltage sweep at " + String(frequency) + " MHz");
-        
+
         automaticSweep(frequency);
         return;
     }
@@ -139,7 +139,7 @@ void VoltageSweep::printResult()
     char identifier = 'v';
     char delimiter = 't';
 
-    String text = String(identifier) + String(matching_voltage) + String(delimiter) + String(tuning_voltage);
+    String text = String(identifier) + String(tuning_voltage) + String(delimiter) + String(matching_voltage);
 
     Serial.println(text);
 }

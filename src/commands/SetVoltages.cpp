@@ -2,12 +2,23 @@
 #include "SetVoltages.h"
 
 void SetVoltages::execute(String input_line){
+    // Format is v<VT voltage>v<VM voltage>
+    // Example: v0.5v0.5
+    // This will set the VM and VT voltages to 0.5 V
     char delimiter = 'v';
-    int VMIndex = input_line.indexOf(delimiter) + 1;
-    int VTIndex = input_line.indexOf(delimiter, VMIndex) + 1;
+    // remove first character
+    input_line = input_line.substring(1);
+    int delimiter_index = input_line.indexOf(delimiter);
+    if (delimiter_index == -1){
+        printInfo("Invalid input for set voltages command.");
+        return;
+    }
 
-    tuning_voltage = input_line.substring(VMIndex, VTIndex - 1).toFloat();
-    matching_voltage = input_line.substring(VTIndex).toFloat();
+    String tuning_voltage_str = input_line.substring(0, delimiter_index);
+    String matching_voltage_str = input_line.substring(delimiter_index + 1);
+
+    tuning_voltage = tuning_voltage_str.toFloat();
+    matching_voltage = matching_voltage_str.toFloat();
 
     adac.write_DAC(VM, tuning_voltage);
     adac.write_DAC(VT, matching_voltage);
@@ -18,16 +29,15 @@ void SetVoltages::printResult(){
     char identifier = 'v';
     char delimiter = 't';
 
-    String text = String(identifier) + String(matching_voltage) + String(delimiter) + String(tuning_voltage);
+    String text = String(identifier) + String(tuning_voltage) + String(delimiter) + String(matching_voltage);
+    printInfo("Voltages set to Tuning: " + String(tuning_voltage) + " V and Matching: " + String(matching_voltage) + " V");
 
     Serial.println(text);
-
-    printInfo("Voltages set to VM: " + String(matching_voltage) + " V and VT: " + String(tuning_voltage) + " V");
 }
 
 void SetVoltages::printHelp(){
     Serial.println("Set voltages command");
-    Serial.println("Syntax: v<VM voltage>v<VT voltage>");
+    Serial.println("Syntax: v<VT voltage>v<VM voltage>");
     Serial.println("Example: v0.5v0.5");
     Serial.println("This will set the VM and VT voltages to 0.5 V");
 }
