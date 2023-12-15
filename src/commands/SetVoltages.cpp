@@ -30,7 +30,6 @@ void SetVoltages::printResult(){
     char delimiter = 't';
 
     String text = String(identifier) + String(tuning_voltage) + String(delimiter) + String(matching_voltage);
-    printInfo("Voltages set to Tuning: " + String(tuning_voltage) + " V and Matching: " + String(matching_voltage) + " V");
 
     Serial.println(text);
 }
