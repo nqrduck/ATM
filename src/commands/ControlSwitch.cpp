@@ -39,6 +39,15 @@ void ControlSwitch::execute(String input_line)
 void ControlSwitch::printResult()
 {
     printInfo(result);
+
+    if (switch_state == PRE_AMP)
+    {
+        Serial.println("cp");
+    }
+    else if (switch_state == ATM_SYSTEM)
+    {
+        Serial.println("ca");
+    }
 }
 
 void ControlSwitch::printHelp()
