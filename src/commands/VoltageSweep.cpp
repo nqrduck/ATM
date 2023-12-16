@@ -11,6 +11,9 @@ void VoltageSweep::execute(String input_line)
     char delimiter = 'o';
     int frequencyIndex = input_line.indexOf(identifier) + 1;
 
+    // set frequency once to 100 MHz
+    setFrequency(100000000);
+
     // Check if optional voltages are given
     if (input_line.indexOf(delimiter, frequencyIndex) == -1)
     {
@@ -34,8 +37,8 @@ void VoltageSweep::execute(String input_line)
         int matchingIndex = input_line.indexOf(delimiter, tuningIndex) + 1;
 
         float frequency_MHz = input_line.substring(frequencyIndex, tuningIndex - 1).toFloat();
-        float tuning_voltage_str = input_line.substring(tuningIndex, matchingIndex - 1).toFloat();
-        float matching_voltage_str = input_line.substring(matchingIndex).toFloat();
+        float tuning_voltage_predefined = input_line.substring(tuningIndex, matchingIndex - 1).toFloat();
+        float matching_voltage_predefined = input_line.substring(matchingIndex).toFloat();
 
         uint32_t frequency = validateInput(frequency_MHz);
         if (frequency == 0)
@@ -43,12 +46,12 @@ void VoltageSweep::execute(String input_line)
             printInfo("Invalid frequency input for voltage sweep.");
             return;
         }
-        printInfo("Starting preset voltage sweep at " + String(frequency) + " MHz");
-        presetVoltages(frequency, tuning_voltage_str, matching_voltage_str);
+        printInfo("Starting preset voltage sweep at " + String(frequency) + " MHz" + " with tuning voltage " + String(tuning_voltage_predefined) + " V and matching voltage " + String(matching_voltage_predefined) + " V");
+        presetVoltages(frequency, tuning_voltage_predefined, matching_voltage_predefined);
     }
 }
 
-void VoltageSweep::presetVoltages(uint32_t frequency, float_t tuning_voltage, float_t matching_voltage)
+void VoltageSweep::presetVoltages(uint32_t frequency, float_t tuning_voltage_predefined, float_t matching_voltage_predefined)
 {
     // For preset voltages we only scan the tuning and matching voltages in a reduced range. This is because the voltages are already close to the optimum values.
     float_t TUNING_RANGE = 0.2;
@@ -57,8 +60,26 @@ void VoltageSweep::presetVoltages(uint32_t frequency, float_t tuning_voltage, fl
 
     setFrequency(frequency);
 
+    float_t tuning_voltage_start = tuning_voltage_predefined - TUNING_RANGE;
+    if (tuning_voltage_start < 0.0)
+        tuning_voltage_start = 0.0;
+
+    float_t tuning_voltage_stop = tuning_voltage_predefined + TUNING_RANGE;
+    if (tuning_voltage_stop > 5.0)
+        tuning_voltage_stop = 5.0;
+
+    printInfo("Tuning voltage start: " + String(tuning_voltage_start));
+
+    float_t matching_voltage_start = matching_voltage_predefined - MATCHING_RANGE;
+    if (matching_voltage_start < 0.0)
+        matching_voltage_start = 0.0;
+
+    float_t matching_voltage_stop = matching_voltage_predefined + MATCHING_RANGE;
+    if (matching_voltage_stop > 5.0)
+        matching_voltage_stop = 5.0;
+
     //  We use the sweepVoltages function to find the optimum tuning and matching voltages
-    sweepVoltages(voltage_step, tuning_voltage - TUNING_RANGE, tuning_voltage + TUNING_RANGE, matching_voltage - MATCHING_RANGE, matching_voltage + MATCHING_RANGE);
+    sweepVoltages(voltage_step, tuning_voltage_start, tuning_voltage_stop, matching_voltage_start, matching_voltage_stop);
 
     adac.write_DAC(VM, matching_voltage);
     adac.write_DAC(VT, tuning_voltage);
@@ -107,14 +128,14 @@ void VoltageSweep::sweepVoltages(float_t voltage_step, float_t tuning_start, flo
     float_t minimum_reflection = 0.0;
 
     // This bruteforces the optimum voltage for tuning and matching.
-    for (float_t c_tuning_voltage = tuning_start; c_tuning_voltage <= tuning_stop; c_tuning_voltage += voltage_step)
+    for (float c_tuning_voltage = tuning_start; c_tuning_voltage <= tuning_stop; c_tuning_voltage += voltage_step)
     {
         adac.write_DAC(VT, c_tuning_voltage);
-        for (float_t c_matching_voltage = matching_start; c_matching_voltage <= matching_stop; c_matching_voltage += voltage_step)
+        for (float c_matching_voltage = matching_start; c_matching_voltage <= matching_stop; c_matching_voltage += voltage_step)
         {
             // Set the tuning and matching voltage
             adac.write_DAC(VM, c_matching_voltage);
-
+            
             // Measure the reflection at the given frequency
             int reflection = readReflection(AVERAGES);
 
@@ -124,10 +145,6 @@ void VoltageSweep::sweepVoltages(float_t voltage_step, float_t tuning_start, flo
                 minimum_reflection = reflection;
                 tuning_voltage = c_tuning_voltage;
                 matching_voltage = c_matching_voltage;
-                // If the returnloss is better than 14dB, we can stop the voltage sweep
-                // float_t reflection_db = (reflection - 900) / 30.0;
-                // if (reflection_db > 14)
-                //    return;
             }
         }
     }

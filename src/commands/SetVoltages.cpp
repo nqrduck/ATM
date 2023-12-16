@@ -20,8 +20,8 @@ void SetVoltages::execute(String input_line){
     tuning_voltage = tuning_voltage_str.toFloat();
     matching_voltage = matching_voltage_str.toFloat();
 
-    adac.write_DAC(VM, tuning_voltage);
-    adac.write_DAC(VT, matching_voltage);
+    adac.write_DAC(VT, tuning_voltage);
+    adac.write_DAC(VM, matching_voltage);
 }
 
 void SetVoltages::printResult(){
