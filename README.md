@@ -1,5 +1,6 @@
-# ATM
-## Stepper-based Automated Tuning and Matching
+# ATM (Automatic Tuning and Matching) System
+
+## Automated Tuning and Matching
 
 Tuning and Matching of the resonator coil is an essential part of Nuclear Quadrupole Resonance (NQR) spectroscopy. Because unknown samples are often scanned over large frequency ranges, Tuning and Matching has to be performed frequently. For high Q probe coils using mechanically trimmable capacitors, this is a long and tedious task.
 To overcome this issue, an automatic Tuning and Matching system was developed using widely available low-cost components. Stepper drivers control mechanically trimmable capacitors and a microcontroller measures the Return Loss at resonance frequency. The system is capable of Tuning and Matching of a resonator coil in a frequency range from 75 to 125 MHz. It can also measure the Return Loss of the probe coil at its resonance frequency.
@@ -41,17 +42,29 @@ For electrically tunable probe coils the ESP32 uses the ADAC click to output a v
 <img src="docs/img/el_instr.png" alt="drawing" width="500"/>
 
 ## Hardware
-Schematics for the electrical circuit and mechanical housing can will be added soon. 
+Schematics for the electrical circuit and mechanical housing will be added soon. 
 
 ## Install instructions
 1. Download the project as a zip file and import it as a platformio project. 
 2. Connect your ESP32 microcontroller to your PC and flash the firmware onto it. 
 
+For the installation of the NQRduck autoTM module please refer to the [NQRduck](https://github.com/nqrduck) documentation.
+
 # Commands
 The user can input different commands to the ATM-system using the serial interface of the ESP32. The general structure of such a command is a single character followed by a float value. The float value is only needed for certain commands.
 
+# Results
+A mechanically tunable probe coil was tuned and from 83MHz to 87MHz with a step size of 0.1MHz. The resulting reflection coefficient was then measured using the VNA (ZVL3, Rohde & Schwarz, Munich, Germany). The measured values were plotted using Matplotlib.
+
+<img src="docs/img/S11_Full_mechcoil_82-87.png" alt="drawing" width="500">
+
+For the electrically tunable probe coil the probe coil was tuned and matched from 83 to 84MHz with a step size of 0.1MHz. The resulting reflection coefficient was then measured using the VNA (ZVL3, Rohde & Schwarz, Munich, Germany). The measured values were plotted using Matplotlib.
+
+<img src="docs/img/S11_full.png" alt="drawing" width="500">
+
 ## Future work
 - Optimization for $S_{11}$ measurements. Right now the maximum achievable matching is about -25dB.
+- Improve the calibration for $S_{11}$ measurements. Right now the setup is very impractical. 
 
 ## References
 - [adf4351](https://github.com/dfannin/adf4351) by David Fannin was modified to be used with an ESP32 microcontroller. 
