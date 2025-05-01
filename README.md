@@ -7,7 +7,7 @@ To overcome this issue, an automatic Tuning and Matching system was developed us
 
 Additionally the system is capable of Tuning and Matching of NQR probe coils using varactor diodes. In this case the system can output a Tuning and Matching voltage in a range from 0 to 5V. 
 
-This system is best used in combination with the [NQRduck](https://github.com/nqrduck) project which provides a graphical user interface for the ATM-system. Specifically, the [nqrduck-autotm](https://github.com/nqrduck/nqrduck-autotm) module is used to control the ATM-system.
+This system is best used in combination with the [NQRduck](https://git.private.coffee/nqrduck) project which provides a graphical user interface for the ATM-system. Specifically, the [nqrduck-autotm](https://git.private.coffee/nqrduck/nqrduck-autotm) module is used to control the ATM-system.
 
 The C++ program is then running on the ESP32 microcontroller. The NQRduck autotm module communicates with the ESP32 microcontroller using the USB interface.
 
@@ -48,7 +48,7 @@ Schematics for the electrical circuit and mechanical housing will be added soon.
 1. Download the project as a zip file and import it as a platformio project. 
 2. Connect your ESP32 microcontroller to your PC and flash the firmware onto it. 
 
-For the installation of the NQRduck autoTM module please refer to the [NQRduck](https://github.com/nqrduck) documentation.
+For the installation of the NQRduck autoTM module please refer to the [NQRduck](https://git.private.coffee/nqrduck) documentation.
 
 # Commands
 The user can input different commands to the ATM-system using the serial interface of the ESP32. The general structure of such a command is a single character followed by a float value. The float value is only needed for certain commands.
